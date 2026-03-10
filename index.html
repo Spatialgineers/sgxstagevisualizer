@@ -32,53 +32,55 @@
     </script>
 
     <style>
-        /* Bloqueo extremo para evitar barras de desplazamiento y la franja azul en iOS */
+        /* CSS BLINDADO PARA IOS SAFARI */
         html, body { 
             margin: 0 !important; padding: 0 !important; 
-            width: 100vw !important; height: 100vh !important; 
+            width: 100% !important; height: 100% !important; 
             overflow: hidden !important; background-color: #0F172A; 
             position: fixed !important; inset: 0;
-            overscroll-behavior: none;
+            overscroll-behavior: none; -webkit-overflow-scrolling: none;
         }
         
-        /* Contenedor AR al fondo asegurando 100% de la pantalla */
-        #ar-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; overflow: hidden; background: #000; }
+        /* Contenedores AR forzados a cubrir la pantalla sin barras laterales */
+        #ar-container { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 1; overflow: hidden; background: transparent;
+        }
         
-        /* 🔥 FIX IOS BARRA AZUL: Forzamos dimensiones mínimas y absolutas a la cámara de AR.js */
-        video#arjs-video, .a-canvas { 
-            z-index: -10 !important; 
-            object-fit: cover !important; 
-            width: 100vw !important; 
-            height: 100vh !important; 
-            min-width: 100vw !important;
-            min-height: 100vh !important;
-            margin: 0 !important; 
-            padding: 0 !important; 
-            position: absolute !important; 
-            top: 0 !important; 
-            left: 0 !important; 
+        /* Capa de la cámara (Video) */
+        video { 
+            position: absolute !important; top: 0 !important; left: 0 !important; 
+            width: 100% !important; height: 100% !important; 
+            object-fit: cover !important; z-index: 2 !important; margin: 0 !important; padding: 0 !important;
+        }
+        
+        /* Capa del canvas 3D (A-Frame) */
+        .a-canvas { 
+            position: absolute !important; top: 0 !important; left: 0 !important; 
+            width: 100% !important; height: 100% !important; 
+            z-index: 3 !important; 
         }
 
-        /* Capa UI Base: No scrolleable para no interferir con la cámara */
+        /* Capa UI Base: No scrolleable, encima de la cámara */
         #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;
-            pointer-events: none; overflow: hidden;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 1000; pointer-events: none; overflow: hidden;
         }
 
-        /* Contenedores modales scrollables internamente */
+        /* Contenedores Modal con Scroll interno (Ocultando barra visual) */
         .scrollable-content {
-            width: 100%; height: 100%; overflow-y: auto; pointer-events: auto;
-            -webkit-overflow-scrolling: touch; padding-bottom: 100px;
+            width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; pointer-events: auto;
+            -webkit-overflow-scrolling: touch; padding-bottom: 80px;
         }
 
-        /* Destrucción de scrollbars nativas */
+        /* Destrucción total de barras de desplazamiento en iOS y Chrome */
         *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
         * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
 
         .interactive { pointer-events: auto; }
         .hidden { display: none !important; }
         
-        /* FIX iOS: Destruir popups molestos de A-Frame que bloquean la pantalla */
+        /* 🔥 FIX iOS: Destruir popups nativos de A-Frame que congelan el teléfono */
         .a-dialog, .a-modal, .a-enter-vr { display: none !important; pointer-events: none !important; opacity: 0 !important; } 
         
         /* Animaciones */
@@ -88,18 +90,20 @@
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 
-    <!-- COMPONENTES AR CUSTOM -->
+    <!-- COMPONENTES AR CUSTOM (Proporciones Perfectas y Efecto Pop-Out) -->
     <script>
         AFRAME.registerComponent('fix-aspect-ratio', {
             init: function () {
-                this.el.addEventListener('materialtextureloaded', (e) => {
-                    const texture = e.detail.texture;
-                    if (texture && texture.image) {
-                        const ratio = texture.image.width / texture.image.height;
+                this.el.addEventListener('materialtextureloaded', () => {
+                    const map = this.el.getObject3D('mesh').material.map;
+                    if (map && map.image) {
+                        const ratio = map.image.width / map.image.height;
                         if (ratio > 1) { 
-                            this.el.setAttribute('width', '1.5'); this.el.setAttribute('height', (1.5 / ratio).toString());
+                            this.el.setAttribute('width', '1.5'); 
+                            this.el.setAttribute('height', (1.5 / ratio).toString());
                         } else { 
-                            this.el.setAttribute('height', '1.5'); this.el.setAttribute('width', (1.5 * ratio).toString());
+                            this.el.setAttribute('height', '1.5'); 
+                            this.el.setAttribute('width', (1.5 * ratio).toString());
                         }
                     }
                 });
@@ -123,7 +127,7 @@
 </head>
 <body class="font-body text-white">
 
-    <!-- AR SCENE CONTAINER (Inyectado al jugar) -->
+    <!-- AR SCENE CONTAINER (Vacío. Se llena al tocar "Jugar") -->
     <div id="ar-container"></div>
 
     <!-- UI LAYER -->
@@ -138,15 +142,15 @@
         <!-- MODAL ALERTAS -->
         <div id="alert-modal" class="hidden absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center p-6 interactive z-[3000] backdrop-blur-sm">
             <div class="bg-gray-900 border border-sgx-yellow rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl fade-in relative overflow-hidden">
-                <i class="fa-solid fa-circle-exclamation text-sgx-yellow text-4xl mb-3 relative z-10"></i>
-                <h3 class="font-heading text-lg text-white mb-2 uppercase relative z-10">Aviso</h3>
-                <p id="alert-message" class="text-sm text-gray-300 mb-6 relative z-10"></p>
-                <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition relative z-10">Entendido</button>
+                <i class="fa-solid fa-circle-exclamation text-sgx-yellow text-4xl mb-3"></i>
+                <h3 class="font-heading text-lg text-white mb-2 uppercase">Aviso</h3>
+                <p id="alert-message" class="text-sm text-gray-300 mb-6"></p>
+                <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">Entendido</button>
             </div>
         </div>
 
-        <!-- PANTALLA INICIO -->
-        <div id="screen-home" class="hidden absolute inset-0 bg-sgx-dark flex flex-col items-center justify-center p-6 interactive overflow-hidden">
+        <!-- PANTALLA INICIO (JUGADOR) -->
+        <div id="screen-home" class="hidden absolute inset-0 bg-sgx-dark flex flex-col items-center justify-center p-6 interactive">
             <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at center, #FDCC0D 1px, transparent 1px); background-size: 30px 30px;"></div>
             <div class="relative z-10 text-center max-w-md w-full slide-up">
                 <div class="w-24 h-24 bg-sgx-blue rounded-2xl rotate-45 mx-auto mb-8 flex items-center justify-center shadow-[0_0_30px_rgba(50,82,123,0.8)] border-2 border-sgx-yellow">
@@ -155,16 +159,16 @@
                 <h1 class="font-heading text-4xl text-white mb-2 uppercase tracking-widest">SGX<br><span class="text-sgx-yellow">Scavenger</span></h1>
                 <p class="text-gray-400 mb-10 text-sm">Escanea los marcadores físicos para revelar arte 3D oculto.</p>
                 <div class="space-y-4">
-                    <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(253,204,13,0.5)] uppercase tracking-wide hover:bg-yellow-400 transition">
+                    <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(253,204,13,0.5)] uppercase tracking-wide transition">
                         <i class="fa-solid fa-play mr-2"></i> Jugar Ahora
                     </button>
-                    <button onclick="window.showScreen('screen-instructions')" class="w-full bg-sgx-dark text-white font-bold py-4 px-6 rounded-xl border border-gray-600 shadow-lg uppercase hover:bg-gray-800 transition">
+                    <button onclick="window.showScreen('screen-instructions')" class="w-full bg-sgx-dark text-white font-bold py-4 px-6 rounded-xl border border-gray-600 shadow-lg uppercase transition">
                         <i class="fa-solid fa-book mr-2"></i> Instrucciones
                     </button>
                 </div>
             </div>
             <!-- Candado Admin -->
-            <div class="absolute bottom-4 right-4 text-gray-700 hover:text-gray-400 cursor-pointer z-50 p-4" onclick="window.checkAdmin()"><i class="fa-solid fa-lock text-sm"></i></div>
+            <div class="absolute bottom-4 right-4 text-gray-700 cursor-pointer z-50 p-4" onclick="window.checkAdmin()"><i class="fa-solid fa-lock text-sm"></i></div>
         </div>
 
         <!-- PANTALLA INSTRUCCIONES -->
@@ -172,7 +176,7 @@
             <div class="max-w-md w-full fade-in mt-6">
                 <div class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
                     <h2 class="font-heading text-2xl text-sgx-yellow">Instrucciones</h2>
-                    <button onclick="window.showScreen('screen-home')" class="text-gray-400 text-2xl hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+                    <button onclick="window.showScreen('screen-home')" class="text-gray-400 text-2xl"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="space-y-6">
                     <div class="flex items-start">
@@ -181,14 +185,14 @@
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">2</div>
-                        <p class="text-sm text-gray-300">Encuentra los <b class="text-white">Símbolos AR</b> físicos en el evento.</p>
+                        <p class="text-sm text-gray-300">Encuentra los <b class="text-white">Símbolos AR</b> (cuadros negros) en el evento real.</p>
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">3</div>
                         <p class="text-sm text-gray-300">Apunta tu cámara al símbolo y el arte 3D saltará hacia ti.</p>
                     </div>
                 </div>
-                <button onclick="window.showScreen('screen-home')" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl mt-10 uppercase shadow-lg hover:bg-yellow-400 transition">Entendido</button>
+                <button onclick="window.showScreen('screen-home')" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl mt-10 uppercase shadow-lg">Entendido</button>
             </div>
         </div>
 
@@ -198,12 +202,12 @@
                 <div class="max-w-md mx-auto fade-in">
                     <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-4 mt-2">
                         <h2 class="font-heading text-xl text-sgx-yellow"><i class="fa-solid fa-user-shield mr-2"></i> SGX Admin</h2>
-                        <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 px-3 py-2 rounded text-sm hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+                        <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 px-3 py-2 rounded text-sm"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     
                     <div class="flex mb-6 space-x-2 bg-gray-900 p-1 rounded-lg">
-                        <button onclick="window.switchAdminTab('artifacts')" id="tab-btn-artifacts" class="flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition">Artefactos</button>
-                        <button onclick="window.switchAdminTab('badges')" id="tab-btn-badges" class="flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition">Insignias</button>
+                        <button onclick="window.switchAdminTab('artifacts')" id="tab-btn-artifacts" class="flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md">Artefactos</button>
+                        <button onclick="window.switchAdminTab('badges')" id="tab-btn-badges" class="flex-1 py-2 text-sm font-bold text-gray-400 rounded-md">Insignias</button>
                     </div>
 
                     <!-- ADMIN ARTEFACTOS -->
@@ -211,18 +215,18 @@
                         <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
                             <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Nuevo Artefacto</h3>
                             <div class="space-y-4">
-                                <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Nombre (Ej. Gafas XR)">
-                                <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Pista de ubicación..."></textarea>
+                                <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre">
+                                <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Pista de ubicación..."></textarea>
                                 <div>
                                     <label class="block text-[10px] text-gray-400 mb-1 uppercase">FOTO DE LA PISTA (El Lugar)</label>
-                                    <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white hover:file:bg-gray-600 transition cursor-pointer">
+                                    <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">ARTE 3D POP-OUT (Imagen o .GLB)</label>
-                                    <input type="file" id="item-art-file" accept="image/*,.glb" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-sgx-blue file:text-white hover:file:bg-blue-600 transition cursor-pointer">
-                                    <p class="text-[9px] text-red-400 mt-1 font-bold">Límite Gratis de Firestore: Archivos menores de 800KB.</p>
+                                    <input type="file" id="item-art-file" accept="image/*,.glb" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-sgx-blue file:text-white">
+                                    <p class="text-[9px] text-red-400 mt-1 font-bold">¡Límite Gratis! El GLB debe pesar menos de 800KB.</p>
                                 </div>
-                                <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-500 mt-2 shadow-lg transition">Guardar Artefacto</button>
+                                <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg transition">Guardar Artefacto</button>
                             </div>
                         </div>
                         <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2 flex justify-between items-center">
@@ -236,15 +240,15 @@
                         <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
                             <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Crear Insignia</h3>
                             <div class="space-y-4">
-                                <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Nombre (Ej. Master Explorer)">
+                                <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. Explorador)">
                                 <div class="flex space-x-2">
-                                    <div class="flex-1"><input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Req. Cantidad"></div>
+                                    <div class="flex-1"><input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Req. Cantidad"></div>
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">IMAGEN DE LA INSIGNIA (Opcional)</label>
-                                    <input type="file" id="badge-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1 hover:file:bg-blue-600 transition cursor-pointer">
+                                    <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">IMAGEN DE LA INSIGNIA</label>
+                                    <input type="file" id="badge-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
                                 </div>
-                                <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2 transition hover:bg-blue-600 shadow-lg">Guardar Insignia</button>
+                                <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2 transition">Guardar Insignia</button>
                             </div>
                         </div>
                         <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2">Insignias Creadas</h3>
@@ -257,7 +261,7 @@
         <!-- MODAL TARJETA IMPRIMIBLE -->
         <div id="modal-print-card" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-6 interactive z-[5000]">
             <div class="w-full max-w-sm bg-white border-4 border-sgx-dark p-6 text-center rounded-xl relative shadow-2xl">
-                <button onclick="document.getElementById('modal-print-card').classList.add('hidden')" class="absolute top-2 right-2 text-gray-400 hover:text-black w-8 h-8 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button onclick="document.getElementById('modal-print-card').classList.add('hidden')" class="absolute top-2 right-2 text-gray-400 w-8 h-8"><i class="fa-solid fa-xmark text-xl"></i></button>
                 <h2 class="font-heading text-xl text-black uppercase font-bold mb-4" id="print-name">Nombre</h2>
                 <div class="flex justify-between items-center mb-4">
                     <div class="w-1/2 flex flex-col items-center">
@@ -266,6 +270,7 @@
                     </div>
                     <div class="w-1/2 flex flex-col items-center">
                         <p class="text-[10px] text-sgx-blue font-bold mb-1 uppercase">2. Apunta Cámara</p>
+                        <!-- 🔥 FIX: Servidor oficial directo del creador de AR.js para evitar bloqueos CORS -->
                         <img id="print-barcode-img" src="" class="w-24 h-24 border-2 border-black object-contain bg-white">
                     </div>
                 </div>
@@ -274,9 +279,9 @@
             <p class="mt-4 text-white text-sm font-bold bg-sgx-dark px-4 py-2 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-camera text-sgx-yellow mr-2"></i>Toma Screenshot para Imprimir</p>
         </div>
 
-        <!-- HUD JUGADOR -->
-        <div id="screen-play" class="hidden absolute inset-0 flex flex-col justify-between p-4 interactive pointer-events-none">
-            <div class="flex justify-between items-start fade-in interactive">
+        <!-- HUD JUGADOR (Pantalla principal de juego) -->
+        <div id="screen-play" class="hidden absolute inset-0 flex flex-col justify-between p-4 interactive">
+            <div class="flex justify-between items-start fade-in">
                 <div class="bg-sgx-dark bg-opacity-90 backdrop-blur border border-sgx-blue rounded-2xl p-3 flex items-center space-x-4 shadow-lg">
                     <div class="bg-sgx-blue p-3 rounded-xl text-sgx-yellow"><i class="fa-solid fa-cube text-xl"></i></div>
                     <div>
@@ -284,10 +289,10 @@
                         <p class="font-heading text-xl text-white"><span id="hud-found" class="text-sgx-yellow">0</span> / <span id="hud-total">0</span></p>
                     </div>
                 </div>
-                <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg hover:bg-gray-800 transition"><i class="fa-solid fa-house"></i></button>
+                <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-house"></i></button>
             </div>
-            <div class="flex justify-center mb-6 slide-up interactive">
-                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide hover:bg-blue-600 transition">
+            <div class="flex justify-center mb-6 slide-up">
+                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide">
                     <i class="fa-solid fa-map-location-dot mr-3"></i> Ver Pistas
                 </button>
             </div>
@@ -299,7 +304,7 @@
                 <div class="max-w-md mx-auto fade-in mt-2">
                     <div class="flex justify-between items-center mb-6 bg-gray-900 p-4 rounded-xl border border-sgx-yellow sticky top-0 z-10 shadow-lg">
                         <h2 class="font-heading text-lg text-white">Ubicaciones</h2>
-                        <button onclick="window.toggleClues(false)" class="text-gray-400 text-2xl w-8 h-8 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+                        <button onclick="window.toggleClues(false)" class="text-gray-400 text-2xl w-8 h-8"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div id="player-clues-list" class="space-y-4 pb-10"></div>
                 </div>
@@ -311,7 +316,7 @@
             <div class="w-full max-w-sm mx-4 bg-gray-900 bg-opacity-90 backdrop-blur-md border-2 border-sgx-yellow p-6 rounded-3xl text-center slide-up shadow-[0_0_40px_rgba(253,204,13,0.5)]">
                 <h3 class="font-heading text-xl text-sgx-yellow uppercase mb-1">¡Artefacto Revelado!</h3>
                 <p class="text-white font-bold mb-4" id="ar-artifact-name">Nombre</p>
-                <button id="btn-collect" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl uppercase tracking-widest hover:bg-yellow-400 transition shadow-lg">
+                <button id="btn-collect" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl uppercase tracking-widest">
                     <i class="fa-solid fa-download mr-2"></i> Recolectar
                 </button>
             </div>
@@ -321,9 +326,10 @@
         <div id="modal-badge" class="hidden absolute inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-6 interactive z-[6000] backdrop-blur-md">
             <div class="bg-sgx-dark border-2 border-sgx-copper rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_60px_rgba(184,115,51,0.6)] pop-out relative overflow-hidden">
                 <p class="text-xs text-sgx-copper uppercase tracking-widest mb-4 font-bold">¡Insignia Obtenida!</p>
-                <div class="w-32 h-32 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center shadow-lg overflow-hidden" id="badge-display-container"></div>
+                <div class="w-32 h-32 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center shadow-lg overflow-hidden" id="badge-display-container">
+                </div>
                 <h2 id="badge-name-display" class="font-heading text-2xl font-bold text-white mb-6 uppercase">Master</h2>
-                <button onclick="document.getElementById('modal-badge').classList.add('hidden')" class="w-full bg-sgx-copper text-white font-bold py-3 rounded-xl hover:bg-orange-600 transition shadow-lg">Continuar</button>
+                <button onclick="document.getElementById('modal-badge').classList.add('hidden')" class="w-full bg-sgx-copper text-white font-bold py-3 rounded-xl">Continuar</button>
             </div>
         </div>
 
@@ -335,7 +341,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // CREDENCIALES EXACTAS (Usadas del input anterior)
+        // CREDENCIALES EXACTAS
         const firebaseConfig = {
             apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
             authDomain: "sgx-ar-hunt.firebaseapp.com",
@@ -346,7 +352,7 @@
             measurementId: "G-QV8KZR2V97"
         };
 
-        const appKey = 'sgx-hunt-v12'; 
+        const appKey = 'sgx-hunt-v15'; 
         
         window.appState = { db: null, auth: null, userId: null, artifacts: [], badges: [], foundIds: new Set(), activeARId: null };
 
@@ -361,57 +367,55 @@
                     if (user) { window.appState.userId = user.uid; loadData(); }
                 });
             } catch (e) {
-                console.error(e);
                 const loader = document.getElementById('loading-screen');
                 if(loader) loader.classList.add('hidden');
-                window.showAlert("Error iniciando conexión con el servidor.");
+                window.showAlert("Error conectando a Firebase.");
             }
         }
 
         function loadData() {
             const db = window.appState.db;
             
-            // Cargar Artefactos (Público)
+            // Cargar Artefactos
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'items'), (snapshot) => {
                 window.appState.artifacts = [];
                 snapshot.forEach(doc => window.appState.artifacts.push({ docId: doc.id, ...doc.data() }));
                 window.appState.artifacts.sort((a,b) => parseInt(a.barcode) - parseInt(b.barcode));
                 
-                // Safeguards para llamadas de UI
-                if (typeof window.renderAdminList === 'function') window.renderAdminList();
-                if (typeof window.renderPlayerClues === 'function') window.renderPlayerClues();
-                if (typeof window.updateHUD === 'function') window.updateHUD();
+                if(window.renderAdminList) window.renderAdminList();
+                if(window.renderPlayerClues) window.renderPlayerClues();
+                if(window.updateHUD) window.updateHUD();
                 
                 const loader = document.getElementById('loading-screen');
-                if (loader && !loader.classList.contains('hidden')) {
+                if(loader && !loader.classList.contains('hidden')) {
                     loader.classList.add('hidden');
                     const home = document.getElementById('screen-home');
                     if(home) home.classList.remove('hidden');
                 }
             });
 
-            // Cargar Badges (Público)
+            // Cargar Badges
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'badges'), (snapshot) => {
                 window.appState.badges = [];
                 snapshot.forEach(doc => window.appState.badges.push({ docId: doc.id, ...doc.data() }));
                 window.appState.badges.sort((a,b) => parseInt(a.threshold) - parseInt(b.threshold));
-                if (typeof window.renderBadgesList === 'function') window.renderBadgesList();
+                if(window.renderBadgesList) window.renderBadgesList();
             });
 
-            // Cargar Progreso Jugador (Privado)
+            // Cargar Progreso Jugador
             onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
                 if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
-                if (typeof window.updateHUD === 'function') window.updateHUD();
+                if(window.updateHUD) window.updateHUD();
             });
         }
 
-        // COMPRESOR LOCAL (Para evadir costo de Firebase Storage)
+        // COMPRESOR LOCAL EXTREMO (Mantiene DB Gratis)
         window.processFileAsBase64 = (file, isGLB, callback) => {
             if (!file) return callback(null);
             
             if (isGLB) {
-                if (file.size > 800000) {
-                    window.showAlert("LÍMITE GRATUITO: El archivo GLB pesa más de 800KB. Redúcelo en Blender.");
+                if (file.size > 900000) {
+                    window.showAlert("LÍMITE EXCEDIDO: El archivo GLB pesa más de 900KB y Firestore lo bloqueará. Redúcelo en Blender o usa una imagen PNG/JPG.");
                     return callback(null);
                 }
                 const reader = new FileReader();
@@ -435,7 +439,7 @@
             }
         };
 
-        // ADMIN: GUARDAR ARTEFACTO
+        // ADMIN: GUARDAR ARTEFACTO 
         window.saveNewArtifact = async function() {
             const name = document.getElementById('item-name').value;
             const hint = document.getElementById('item-hint').value;
@@ -445,22 +449,23 @@
 
             if (!name || !hint) return window.showAlert("Nombre y pista obligatorios.");
             
-            btnSave.innerText = "Empaquetando (Espera)...";
+            btnSave.innerText = "Empaquetando...";
             btnSave.disabled = true;
 
             try {
-                // Cálculo de próximo barcode
                 const usedBarcodes = window.appState.artifacts.map(a => parseInt(a.barcode));
                 let nextBarcode = 0;
-                while (usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
+                while(usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
 
                 let isGLB = false;
-                if (fileArt && fileArt.name.toLowerCase().endsWith('.glb')) isGLB = true;
+                if(fileArt && fileArt.name.toLowerCase().endsWith('.glb')) isGLB = true;
 
                 window.processFileAsBase64(fileHint, false, (hintBase64) => {
                     window.processFileAsBase64(fileArt, isGLB, async (artBase64) => {
                         if (fileArt && !artBase64) {
-                            btnSave.innerText = "Guardar Artefacto"; btnSave.disabled = false; return; 
+                            btnSave.innerText = "Guardar Artefacto";
+                            btnSave.disabled = false;
+                            return; 
                         }
                         
                         try {
@@ -472,7 +477,7 @@
                             document.getElementById('item-hint-image').value = '';
                             document.getElementById('item-art-file').value = '';
                         } catch (err) {
-                            window.showAlert("Documento demasiado grande para Firebase. Usa fotos más ligeras o modelos optimizados.");
+                            window.showAlert("Error: Archivo muy pesado para plan gratuito.");
                         } finally {
                             btnSave.innerText = "Guardar Artefacto";
                             btnSave.disabled = false;
@@ -480,14 +485,14 @@
                     });
                 });
             } catch (e) {
-                window.showAlert("Error procesando archivos locales.");
+                window.showAlert("Error interno.");
                 btnSave.innerText = "Guardar Artefacto";
                 btnSave.disabled = false;
             }
         };
 
         window.deleteArtifact = async function(docId) { 
-            if (window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); 
+            if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); 
         };
 
         // ADMIN: GUARDAR BADGE
@@ -495,11 +500,15 @@
             const name = document.getElementById('badge-name').value;
             const threshold = parseInt(document.getElementById('badge-threshold').value);
             const fileBadge = document.getElementById('badge-image').files[0];
+            const btnSave = document.getElementById('btn-save-badge');
 
-            if (!name || !threshold || !fileBadge) return window.showAlert("Nombre, cantidad e imagen son requeridos.");
+            if(!name || !threshold || !fileBadge) return window.showAlert("Nombre, cantidad e imagen son requeridos.");
+            
+            btnSave.innerText = "Guardando...";
+            btnSave.disabled = true;
 
             window.processFileAsBase64(fileBadge, false, async (imgBase64) => {
-                if (window.appState.db && imgBase64) {
+                if(window.appState.db && imgBase64) {
                     await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { 
                         name, imageUrl: imgBase64, threshold 
                     });
@@ -507,6 +516,8 @@
                     document.getElementById('badge-threshold').value = '';
                     document.getElementById('badge-image').value = '';
                 }
+                btnSave.innerText = "Guardar Insignia";
+                btnSave.disabled = false;
             });
         };
 
@@ -514,41 +525,41 @@
             if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges', docId)); 
         };
 
-        // EVENTO: ARTEFACTO ENCONTRADO
+        // LÓGICA DE RECOLECCIÓN
         window.triggerFound = function(artifactId) {
             if (window.appState.foundIds.has(artifactId) || window.appState.activeARId === artifactId) return; 
             window.appState.activeARId = artifactId;
             
             const item = window.appState.artifacts.find(a => a.id === artifactId);
-            if (!item) return;
+            if(!item) return;
 
             const nameEl = document.getElementById('ar-artifact-name');
             const rewardEl = document.getElementById('screen-ar-reward');
-            if (nameEl) nameEl.innerText = item.name;
-            if (rewardEl) rewardEl.classList.remove('hidden');
+            if(nameEl) nameEl.innerText = item.name;
+            if(rewardEl) rewardEl.classList.remove('hidden');
             
             document.getElementById('btn-collect').onclick = async () => {
-                if (rewardEl) rewardEl.classList.add('hidden');
+                if(rewardEl) rewardEl.classList.add('hidden');
                 window.appState.activeARId = null;
                 
                 window.appState.foundIds.add(artifactId);
-                if (window.appState.db) {
+                if(window.appState.db) {
                     await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { foundList: Array.from(window.appState.foundIds) });
                 }
-                if (window.renderPlayerClues) window.renderPlayerClues();
+                if(window.renderPlayerClues) window.renderPlayerClues();
 
                 // EVALUAR BADGES
                 const newSize = window.appState.foundIds.size;
                 const earnedBadge = window.appState.badges.find(b => parseInt(b.threshold) === newSize);
                 
-                if (earnedBadge) {
+                if(earnedBadge) {
                     const badgeNameEl = document.getElementById('badge-name-display');
                     const badgeContainer = document.getElementById('badge-display-container');
                     const badgeModal = document.getElementById('modal-badge');
                     
-                    if (badgeNameEl) badgeNameEl.innerText = earnedBadge.name;
-                    if (badgeContainer) badgeContainer.innerHTML = `<img src="${earnedBadge.imageUrl}" class="w-full h-full object-cover">`;
-                    if (badgeModal) badgeModal.classList.remove('hidden');
+                    if(badgeNameEl) badgeNameEl.innerText = earnedBadge.name;
+                    if(badgeContainer) badgeContainer.innerHTML = `<img src="${earnedBadge.imageUrl}" class="w-full h-full object-cover">`;
+                    if(badgeModal) badgeModal.classList.remove('hidden');
                 }
             };
         };
@@ -560,14 +571,13 @@
     <script>
         window.showAlert = (msg) => { 
             const a = document.getElementById('alert-message'); 
-            const m = document.getElementById('alert-modal');
-            if (a && m) { a.innerText = msg; m.classList.remove('hidden');} 
+            if(a) { a.innerText = msg; document.getElementById('alert-modal').classList.remove('hidden');} 
             else alert(msg); 
         };
         
         window.showScreen = (id) => { 
-            ['screen-home', 'screen-instructions', 'screen-dash', 'screen-play'].forEach(s => { const e=document.getElementById(s); if(e) e.classList.add('hidden'); }); 
-            const t = document.getElementById(id); if (t) t.classList.remove('hidden'); 
+            ['screen-home', 'screen-instructions', 'screen-dash', 'screen-play'].forEach(s => { const e=document.getElementById(s); if(e)e.classList.add('hidden'); }); 
+            const t = document.getElementById(id); if(t) t.classList.remove('hidden'); 
         };
         
         window.checkAdmin = () => { if(prompt("Acceso SGX:") === "sgx2026") window.showScreen('screen-dash'); };
@@ -576,37 +586,37 @@
             ['artifacts', 'badges'].forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
                 const btn = document.getElementById(`tab-btn-${t}`);
-                if (el) el.classList.add('hidden');
-                if (btn) btn.className = "flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition";
+                if(el) el.classList.add('hidden');
+                if(btn) btn.className = "flex-1 py-2 text-sm font-bold text-gray-400 rounded-md transition";
             });
             const el = document.getElementById(`tab-${tab}`);
             const btn = document.getElementById(`tab-btn-${tab}`);
-            if (el) el.classList.remove('hidden');
-            if (btn) btn.className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
+            if(el) el.classList.remove('hidden');
+            if(btn) btn.className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
         };
         
         window.updateHUD = () => {
             const t = document.getElementById('hud-total'), f = document.getElementById('hud-found');
-            if (t && window.appState && window.appState.artifacts) t.innerText = window.appState.artifacts.length;
-            if (f && window.appState && window.appState.foundIds) f.innerText = window.appState.foundIds.size;
+            if(t && window.appState) t.innerText = window.appState.artifacts.length || 0;
+            if(f && window.appState) f.innerText = window.appState.foundIds.size || 0;
         };
         
         window.toggleClues = (show) => { const c = document.getElementById('modal-clues'); if(c) show ? c.classList.remove('hidden') : c.classList.add('hidden'); };
 
-        // INYECCIÓN DE CÁMARA AR
+        // INYECCIÓN DE CÁMARA (Limpia y Retrasada para proteger iOS)
         window.startGame = () => {
-            if (!window.appState || window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos en la base de datos.");
+            if(!window.appState || window.appState.artifacts.length === 0) return window.showAlert("La experiencia aún no tiene artefactos.");
             window.showScreen('screen-play');
             
             const container = document.getElementById('ar-container');
-            if (!container || container.innerHTML.trim() !== '') return; 
+            if(!container || container.innerHTML.trim() !== '') return; 
 
             let markersHTML = '';
             window.appState.artifacts.forEach(item => {
                 let artHTML = `<a-box color="#FDCC0D" depth="0.6" height="0.6" width="0.6" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-box>`;
                 
-                if (item.imageArt) {
-                    if (item.isGLB) {
+                if(item.imageArt) {
+                    if(item.isGLB) {
                         artHTML = `<a-gltf-model src="${item.imageArt}" position="0 0.5 0" scale="0.5 0.5 0.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-gltf-model>`;
                     } else {
                         artHTML = `
@@ -638,23 +648,23 @@
         window.renderAdminList = () => {
             const list = document.getElementById('admin-artifacts-list');
             const count = document.getElementById('list-count');
-            if (count && window.appState && window.appState.artifacts) count.innerText = window.appState.artifacts.length;
+            if (count && window.appState) count.innerText = window.appState.artifacts.length || 0;
             if (!list) return;
 
             list.innerHTML = '';
             const baseUrl = window.location.href.split('?')[0]; 
             window.appState.artifacts.forEach(item => {
                 const codeNumber = item.barcode !== undefined ? item.barcode : 0; 
-                // URL Estable de Github Raw Hack - No falla y renderiza bien el cuadrado negro
-                const barcodeImgUrl = `https://raw.githack.com/AR-js-org/AR.js/master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
+                // 🔥 URL OFICIAL DE JEROME ETIENNE (Nunca falla CORS)
+                const barcodeImgUrl = `https://ar-js-org.github.io/AR.js/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
                 
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
                         <div class="flex justify-between items-start mb-3">
-                            <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-sgx-yellow font-bold mt-1">Barcode Visual ID: ${codeNumber}</p></div>
-                            <button onclick="window.deleteArtifact('${item.docId}')" class="text-red-500 hover:text-red-400 transition"><i class="fa-solid fa-trash"></i></button>
+                            <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-sgx-yellow">Barcode ID: ${codeNumber}</p></div>
+                            <button onclick="window.deleteArtifact('${item.docId}')" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
                         </div>
-                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}')" class="w-full bg-white text-black font-bold py-2 rounded text-sm hover:bg-gray-200 transition"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta Imprimible</button>
+                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}')" class="w-full bg-white text-black font-bold py-2 rounded text-sm hover:bg-gray-200"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta AR</button>
                     </div>
                 `;
             });
@@ -664,30 +674,27 @@
             const list = document.getElementById('admin-badges-list');
             if (!list) return;
             list.innerHTML = '';
-            if (!window.appState || window.appState.badges.length === 0) {
-                list.innerHTML = '<p class="text-xs text-gray-500 text-center">Aún no hay insignias creadas.</p>';
-                return;
-            }
+            if(!window.appState || window.appState.badges.length === 0) return;
             
             window.appState.badges.forEach(badge => {
+                const imgHTML = badge.imageUrl 
+                    ? `<img src="${badge.imageUrl}" class="w-10 h-10 rounded-full object-cover border border-sgx-copper">` 
+                    : `<i class="fa-solid fa-medal text-sgx-copper text-xl"></i>`;
+
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex justify-between items-center">
                         <div class="flex items-center space-x-3">
-                            <img src="${badge.imageUrl}" class="w-10 h-10 rounded-full object-cover border border-sgx-copper">
-                            <div><h4 class="font-bold text-white text-sm">${badge.name}</h4><p class="text-xs text-sgx-yellow font-bold">Meta: ${badge.threshold} obj.</p></div>
+                            ${imgHTML}
+                            <div><h4 class="font-bold text-white text-sm">${badge.name}</h4><p class="text-xs text-sgx-yellow font-bold">A los ${badge.threshold} obj.</p></div>
                         </div>
-                        <button onclick="window.deleteBadge('${badge.docId}')" class="text-red-500 hover:text-red-400 p-2 transition"><i class="fa-solid fa-trash"></i></button>
+                        <button onclick="window.deleteBadge('${badge.docId}')" class="text-red-500 hover:text-red-400 p-2"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 `;
             });
         };
 
         window.showPrintCard = (name, qrUrl, barcodeUrl) => {
-            const nameEl = document.getElementById('print-name');
-            const imgEl = document.getElementById('print-barcode-img');
-            const qrEl = document.getElementById('print-qr');
-            const modal = document.getElementById('modal-print-card');
-            
+            const nameEl = document.getElementById('print-name'), imgEl = document.getElementById('print-barcode-img'), qrEl = document.getElementById('print-qr'), modal = document.getElementById('modal-print-card');
             if (nameEl && imgEl && qrEl && modal) {
                 nameEl.innerText = name; 
                 imgEl.setAttribute('src', barcodeUrl); 
@@ -701,12 +708,6 @@
             const list = document.getElementById('player-clues-list');
             if (!list || !window.appState) return;
             list.innerHTML = '';
-            
-            if (window.appState.artifacts.length === 0) {
-                list.innerHTML = '<p class="text-xs text-gray-500 text-center">Buscando pistas...</p>';
-                return;
-            }
-
             window.appState.artifacts.forEach((item) => {
                 const found = window.appState.foundIds.has(item.id);
                 list.innerHTML += `
