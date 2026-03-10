@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SGX AR Scavenger Hunt</title>
     
     <!-- Tailwind CSS -->
@@ -32,14 +32,24 @@
     </script>
 
     <style>
-        body { margin: 0; overflow: hidden; background-color: #0F172A; }
+        /* Bloqueo extremo para evitar barras de desplazamiento y recortes en iOS */
+        html, body { 
+            margin: 0; padding: 0; width: 100vw; height: 100vh; 
+            overflow: hidden; background-color: #0F172A; 
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            overscroll-behavior: none; -webkit-overflow-scrolling: auto;
+        }
         
-        /* Capa de Interfaz - Oculta scrollbars por completo para evitar la barra azul en iOS */
+        /* Capa de Interfaz - Sin scrollbars jamás */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;
-            pointer-events: none; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none;
+            pointer-events: none; overflow-y: auto; overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
         }
-        *::-webkit-scrollbar { display: none !important; }
+        
+        /* Destrucción de Scrollbars en todos los navegadores */
+        * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+        ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; background: transparent !important; }
 
         .interactive { pointer-events: auto; }
         .hidden { display: none !important; }
@@ -48,9 +58,9 @@
         .a-dialog, .a-modal, .a-enter-vr { display: none !important; pointer-events: none !important; } 
         
         /* Contenedor AR al fondo */
-        #ar-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
-        #arjs-video { z-index: -10 !important; object-fit: cover; }
-        .a-canvas { z-index: -5 !important; }
+        #ar-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; overflow: hidden; }
+        #arjs-video { z-index: -10 !important; object-fit: cover; width: 100% !important; height: 100% !important; margin: 0 !important; }
+        .a-canvas { z-index: -5 !important; width: 100% !important; height: 100% !important; }
         
         /* Animaciones */
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
@@ -61,7 +71,6 @@
 
     <!-- COMPONENTES AR CUSTOM (Anti-Estiramiento y Pop-Out) -->
     <script>
-        // Corrige la proporción de imágenes rectangulares para que no se estiren en el espacio AR
         AFRAME.registerComponent('fix-aspect-ratio', {
             init: function () {
                 this.el.addEventListener('materialtextureloaded', (e) => {
@@ -71,7 +80,7 @@
                         if (ratio > 1) { // Horizontal
                             this.el.setAttribute('width', '1.5');
                             this.el.setAttribute('height', (1.5 / ratio).toString());
-                        } else { // Vertical o cuadrado
+                        } else { // Vertical
                             this.el.setAttribute('height', '1.5');
                             this.el.setAttribute('width', (1.5 * ratio).toString());
                         }
@@ -80,13 +89,11 @@
             }
         });
 
-        // Lógica de salto 3D (Pop Out)
         AFRAME.registerComponent('ar-logic', {
             schema: { artifactId: { type: 'string' } },
             init: function () {
                 this.el.addEventListener('markerFound', () => {
                     const screenPlay = document.getElementById('screen-play');
-                    // Solo salta si el usuario está en el HUD de juego activo
                     if (screenPlay && !screenPlay.classList.contains('hidden')) {
                         const wrapper = this.el.querySelector('.model-wrapper');
                         if (wrapper) wrapper.setAttribute('animation__pop', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutElastic');
@@ -170,7 +177,7 @@
 
         <!-- PANTALLA ADMIN -->
         <div id="screen-dash" class="hidden min-h-screen bg-sgx-dark p-4 interactive">
-            <div class="max-w-md mx-auto fade-in pb-20">
+            <div class="max-w-md mx-auto fade-in pb-24">
                 <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-4 mt-2">
                     <h2 class="font-heading text-xl text-sgx-yellow"><i class="fa-solid fa-user-shield mr-2"></i> SGX Admin</h2>
                     <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 px-3 py-2 rounded text-sm"><i class="fa-solid fa-xmark"></i></button>
@@ -193,17 +200,20 @@
                                 <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white">
                             </div>
                             <div>
-                                <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">ARTE 3D POP-OUT (Imagen o .GLB)</label>
+                                <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">ARTE 3D POP-OUT (.GLB o .JPG/PNG)</label>
                                 <input type="file" id="item-art-file" accept="image/*,.glb" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-sgx-blue file:text-white">
-                                <p class="text-[9px] text-gray-500 mt-1">Para Base de Datos Gratis: GLB Máx: ~700KB.</p>
+                                <p class="text-[9px] text-gray-500 mt-1">GLB Máx: 700KB para evitar lentitud.</p>
                             </div>
-                            <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-500 mt-2 shadow-lg">Guardar Artefacto</button>
+                            <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-500 mt-2 shadow-lg transition">Guardar Artefacto</button>
                         </div>
                     </div>
-                    <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2">Artefactos (<span id="list-count">0</span>)</h3>
+                    <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2 flex justify-between items-center">
+                        Artefactos Activos <span id="list-count" class="bg-sgx-blue px-2 py-1 rounded text-xs">0</span>
+                    </h3>
                     <div id="admin-artifacts-list" class="space-y-4"></div>
                 </div>
 
+                <!-- ADMIN INSIGNIAS -->
                 <div id="tab-badges" class="hidden">
                     <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
                         <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Crear Insignia</h3>
@@ -213,15 +223,20 @@
                                 <div class="flex-1"><input type="text" id="badge-icon" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Icon (fa-star)" value="fa-medal"></div>
                                 <div class="flex-1"><input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Req. Cantidad"></div>
                             </div>
-                            <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2">Guardar Insignia</button>
+                            <div>
+                                <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">IMAGEN DE LA INSIGNIA (Opcional)</label>
+                                <input type="file" id="badge-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
+                            </div>
+                            <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2 transition">Guardar Insignia</button>
                         </div>
                     </div>
+                    <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2">Insignias Creadas</h3>
                     <div id="admin-badges-list" class="space-y-3"></div>
                 </div>
             </div>
         </div>
 
-        <!-- MODAL TARJETA -->
+        <!-- MODAL TARJETA IMPRIMIBLE -->
         <div id="modal-print-card" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-6 interactive z-[5000]">
             <div class="w-full max-w-sm bg-white border-4 border-sgx-dark p-6 text-center rounded-xl relative shadow-2xl">
                 <button onclick="document.getElementById('modal-print-card').classList.add('hidden')" class="absolute top-2 right-2 text-gray-400 w-8 h-8"><i class="fa-solid fa-xmark"></i></button>
@@ -229,7 +244,7 @@
                 <div class="flex justify-between items-center mb-4">
                     <div class="w-1/2 flex flex-col items-center">
                         <p class="text-[10px] text-gray-500 font-bold mb-1 uppercase">1. Escanea URL</p>
-                        <div id="print-qr" class="border-2 border-gray-300 p-1 rounded"></div>
+                        <div id="print-qr" class="border-2 border-gray-300 p-1 rounded bg-white"></div>
                     </div>
                     <div class="w-1/2 flex flex-col items-center">
                         <p class="text-[10px] text-sgx-blue font-bold mb-1 uppercase">2. Apunta Cámara</p>
@@ -238,10 +253,10 @@
                 </div>
                 <p class="text-xs text-sgx-blue font-bold uppercase mt-2">Spatialgineers AR Hunt</p>
             </div>
-            <p class="mt-4 text-white text-sm font-bold bg-sgx-dark px-4 py-2 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-camera text-sgx-yellow mr-2"></i>Toma Screenshot</p>
+            <p class="mt-4 text-white text-sm font-bold bg-sgx-dark px-4 py-2 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-camera text-sgx-yellow mr-2"></i>Toma Screenshot para Imprimir</p>
         </div>
 
-        <!-- PANTALLA HUD JUGADOR -->
+        <!-- HUD JUGADOR -->
         <div id="screen-play" class="hidden h-screen w-full flex flex-col justify-between p-4 interactive">
             <div class="flex justify-between items-start fade-in">
                 <div class="bg-sgx-dark bg-opacity-90 backdrop-blur border border-sgx-blue rounded-2xl p-3 flex items-center space-x-4 shadow-lg">
@@ -254,13 +269,13 @@
                 <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-house"></i></button>
             </div>
             <div class="flex justify-center mb-6 slide-up">
-                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide">
+                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide hover:bg-blue-600 transition">
                     <i class="fa-solid fa-map-location-dot mr-3"></i> Ver Pistas
                 </button>
             </div>
         </div>
 
-        <!-- MODAL PISTAS JUGADOR -->
+        <!-- PISTAS JUGADOR -->
         <div id="modal-clues" class="hidden absolute inset-0 bg-sgx-dark bg-opacity-95 flex flex-col items-center p-4 interactive z-50 overflow-y-auto">
             <div class="w-full max-w-md mt-2 fade-in">
                 <div class="flex justify-between items-center mb-6 bg-gray-900 p-4 rounded-xl border border-sgx-yellow sticky top-0 z-10 shadow-lg">
@@ -286,8 +301,8 @@
         <div id="modal-badge" class="hidden absolute inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-6 interactive z-[6000] backdrop-blur-md">
             <div class="bg-sgx-dark border-2 border-sgx-copper rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_60px_rgba(184,115,51,0.6)] pop-out relative overflow-hidden">
                 <p class="text-xs text-sgx-copper uppercase tracking-widest mb-4 font-bold">¡Insignia Obtenida!</p>
-                <div class="w-28 h-28 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center shadow-lg overflow-hidden">
-                    <i id="badge-icon-display" class="fa-solid fa-star text-sgx-copper text-6xl"></i>
+                <div class="w-32 h-32 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center shadow-lg overflow-hidden" id="badge-display-container">
+                    <!-- Icono o Imagen dinámica -->
                 </div>
                 <h2 id="badge-name-display" class="font-heading text-2xl font-bold text-white mb-6 uppercase">Master</h2>
                 <button onclick="document.getElementById('modal-badge').classList.add('hidden')" class="w-full bg-sgx-copper text-white font-bold py-3 rounded-xl hover:bg-orange-600 transition">Continuar</button>
@@ -296,13 +311,14 @@
 
     </div>
 
-    <!-- FIREBASE MODULE & LOGIC (Usando 12.10.0 según el usuario) -->
+    <!-- FIREBASE MODULE & LOGIC -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-        // Configuración exacta proporcionada
+        // Credenciales oficiales
         const firebaseConfig = {
             apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
             authDomain: "sgx-ar-hunt.firebaseapp.com",
@@ -313,119 +329,80 @@
             measurementId: "G-QV8KZR2V97"
         };
 
-        const appKey = 'sgx-hunt-v9'; // Cambio de Key para reiniciar datos corruptos
+        const appKey = 'sgx-hunt-v10'; // Versión final DB
         
-        window.appState = { db: null, auth: null, userId: null, artifacts: [], badges: [], foundIds: new Set(), activeARId: null };
+        window.appState = { db: null, auth: null, storage: null, userId: null, artifacts: [], badges: [], foundIds: new Set(), activeARId: null };
 
         async function initApp() {
             try {
                 const app = initializeApp(firebaseConfig);
                 window.appState.auth = getAuth(app);
                 window.appState.db = getFirestore(app);
-                
+                window.appState.storage = getStorage(app); 
+
                 await signInAnonymously(window.appState.auth);
                 onAuthStateChanged(window.appState.auth, (user) => {
                     if (user) { window.appState.userId = user.uid; loadData(); }
                 });
             } catch (e) {
-                const ls = document.getElementById('loading-screen');
-                if(ls) ls.classList.add('hidden');
-                window.showAlert("Error iniciando base de datos.");
+                console.error(e);
+                const loader = document.getElementById('loading-screen');
+                if(loader) loader.classList.add('hidden');
+                window.showAlert("Error iniciando plataforma.");
             }
         }
 
         function loadData() {
             const db = window.appState.db;
-            if(!db) return;
-
+            
+            // Cargar Artefactos
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'items'), (snapshot) => {
                 window.appState.artifacts = [];
                 snapshot.forEach(doc => window.appState.artifacts.push({ docId: doc.id, ...doc.data() }));
-                window.appState.artifacts.sort((a,b) => a.barcode - b.barcode);
+                window.appState.artifacts.sort((a,b) => parseInt(a.barcode) - parseInt(b.barcode));
                 
                 if(window.renderAdminList) window.renderAdminList();
                 if(window.renderPlayerClues) window.renderPlayerClues();
                 if(window.updateHUD) window.updateHUD();
                 
-                const ls = document.getElementById('loading-screen');
-                const sh = document.getElementById('screen-home');
-                const sp = document.getElementById('screen-play');
-                const sd = document.getElementById('screen-dash');
-                
-                if(ls) ls.classList.add('hidden');
-                
-                // Solo muestra Home si no está jugando ni en dashboard
-                if(sh && (!sp || sp.classList.contains('hidden')) && (!sd || sd.classList.contains('hidden'))) {
-                    sh.classList.remove('hidden');
+                const loader = document.getElementById('loading-screen');
+                if(loader && !loader.classList.contains('hidden')) {
+                    loader.classList.add('hidden');
+                    const home = document.getElementById('screen-home');
+                    if(home) home.classList.remove('hidden');
                 }
             });
 
+            // Cargar Badges
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'badges'), (snapshot) => {
                 window.appState.badges = [];
                 snapshot.forEach(doc => window.appState.badges.push({ docId: doc.id, ...doc.data() }));
-                window.appState.badges.sort((a,b) => a.threshold - b.threshold);
+                window.appState.badges.sort((a,b) => parseInt(a.threshold) - parseInt(b.threshold));
                 if(window.renderBadgesList) window.renderBadgesList();
             });
 
-            if(window.appState.userId) {
-                onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
-                    if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
-                    if(window.updateHUD) window.updateHUD();
-                });
-            }
+            // Cargar Progreso Jugador
+            onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
+                if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
+                if(window.updateHUD) window.updateHUD();
+            });
         }
 
-        // CARGA DIRECTA A BASE DE DATOS (Sin Firebase Storage) - Limite 700kb para Firestore
-        window.processHintImage = (file, callback) => {
-            if(!file) return callback(null);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX = 300; const scale = Math.min(MAX / img.width, 1);
-                    canvas.width = img.width * scale; canvas.height = img.height * scale;
-                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    callback(canvas.toDataURL('image/jpeg', 0.5));
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        };
-
-        window.processArtFile = (file, isGLB, callback) => {
-            if(!file) return callback(null);
-            if(isGLB) {
-                // Verificar límite de base de datos gratuita (~1MB Firestore Limit)
-                if(file.size > 700000) { 
-                    window.showAlert("GLB muy pesado para base de datos gratuita. Máximo: 700KB."); 
-                    return callback(null); 
-                }
-                const reader = new FileReader();
-                reader.onload = (e) => callback(e.target.result); // Base64
-                reader.readAsDataURL(file);
-            } else {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 512; canvas.height = 512;
-                        const ctx = canvas.getContext('2d');
-                        ctx.clearRect(0,0, 512, 512);
-                        const scale = Math.min(512 / img.width, 512 / img.height);
-                        const w = img.width * scale; const h = img.height * scale;
-                        ctx.drawImage(img, (512-w)/2, (512-h)/2, w, h);
-                        callback(canvas.toDataURL('image/png', 0.7)); // PNG para mantener transparencias
-                    };
-                    img.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
+        // CARGA FIREBASE STORAGE
+        window.uploadToStorage = async function(file, folderPath) {
+            if(!file) return null;
+            try {
+                const safeName = Date.now() + "_" + file.name.replace(/[^a-zA-Z0-9.]/g, "_");
+                const storageRef = ref(window.appState.storage, `${folderPath}/${safeName}`);
+                await uploadBytes(storageRef, file);
+                return await getDownloadURL(storageRef);
+            } catch (error) {
+                throw new Error("Activa Firebase Storage en tu consola primero.");
             }
         };
 
-        // ADMIN: GUARDAR ARTEFACTO (Directo a Firestore en Base64)
-        window.saveNewArtifact = function() {
+        // ADMIN: GUARDAR ARTEFACTO (Lógica de Barcode 100% segura)
+        window.saveNewArtifact = async function() {
             const name = document.getElementById('item-name').value;
             const hint = document.getElementById('item-hint').value;
             const fileHint = document.getElementById('item-hint-image').files[0];
@@ -434,57 +411,67 @@
 
             if (!name || !hint) return window.showAlert("Nombre y pista obligatorios.");
             
-            btnSave.innerText = "Procesando...";
+            btnSave.innerText = "Subiendo...";
             btnSave.disabled = true;
 
-            const usedBarcodes = window.appState.artifacts.map(a => parseInt(a.barcode));
-            let nextBarcode = 0;
-            while(usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
+            try {
+                // Cálculo de Barcode: Buscar el próximo número que no exista en la BD
+                const usedBarcodes = window.appState.artifacts.map(a => parseInt(a.barcode));
+                let nextBarcode = 0;
+                while(usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
 
-            let isGLB = false;
-            if(fileArt && fileArt.name.toLowerCase().endsWith('.glb')) isGLB = true;
+                let isGLB = false;
+                if(fileArt && fileArt.name.toLowerCase().endsWith('.glb')) isGLB = true;
 
-            window.processHintImage(fileHint, (hintBase64) => {
-                window.processArtFile(fileArt, isGLB, async (artBase64) => {
-                    try {
-                        if(window.appState.db) {
-                            await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
-                                id: Date.now().toString(), name, hint, barcode: nextBarcode, imageHint: hintBase64, imageArt: artBase64, isGLB: isGLB
-                            });
-                        }
-                        document.getElementById('item-name').value = '';
-                        document.getElementById('item-hint').value = '';
-                        document.getElementById('item-hint-image').value = '';
-                        document.getElementById('item-art-file').value = '';
-                    } catch (e) {
-                        window.showAlert("Fallo la subida. Archivo muy grande para DB gratuita.");
-                    } finally {
-                        btnSave.innerText = "Guardar Artefacto";
-                        btnSave.disabled = false;
-                    }
+                const hintUrl = await window.uploadToStorage(fileHint, `${appKey}/hints`);
+                const artUrl = await window.uploadToStorage(fileArt, `${appKey}/art`);
+
+                await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
+                    id: Date.now().toString(), name, hint, barcode: nextBarcode, imageUrl: hintUrl, artUrl: artUrl, isGLB: isGLB
                 });
-            });
+
+                document.getElementById('item-name').value = '';
+                document.getElementById('item-hint').value = '';
+                document.getElementById('item-hint-image').value = '';
+                document.getElementById('item-art-file').value = '';
+            } catch (e) {
+                window.showAlert("Fallo la subida: " + e.message);
+            } finally {
+                btnSave.innerText = "Guardar Artefacto";
+                btnSave.disabled = false;
+            }
         };
 
         window.deleteArtifact = async function(docId) { 
             if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); 
         };
 
-        // ADMIN: GUARDAR BADGE (Directo a Firestore)
+        // ADMIN: GUARDAR BADGE (Soporta Imagen custom o FontAwesome)
         window.saveNewBadge = async function() {
             const name = document.getElementById('badge-name').value;
-            const icon = document.getElementById('badge-icon').value;
+            const icon = document.getElementById('badge-icon').value || 'fa-medal';
             const threshold = parseInt(document.getElementById('badge-threshold').value);
+            const fileBadge = document.getElementById('badge-image').files[0];
+            const btnSave = document.getElementById('btn-save-badge');
 
-            if(!name || !threshold) return window.showAlert("Faltan datos de la insignia.");
+            if(!name || !threshold) return window.showAlert("Nombre y cantidad requeridos.");
             
+            btnSave.innerText = "Guardando...";
+            btnSave.disabled = true;
+
             try {
-                if(window.appState.db) {
-                    await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { name, icon, threshold });
-                    document.getElementById('badge-name').value = '';
-                    document.getElementById('badge-threshold').value = '';
-                }
-            } catch(e) { window.showAlert("Error guardando insignia."); }
+                const imgUrl = await window.uploadToStorage(fileBadge, `${appKey}/badges`);
+                await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { name, icon, imageUrl: imgUrl, threshold });
+                document.getElementById('badge-name').value = '';
+                document.getElementById('badge-threshold').value = '';
+                document.getElementById('badge-icon').value = 'fa-medal';
+                document.getElementById('badge-image').value = '';
+            } catch(e) {
+                window.showAlert("Fallo la subida: " + e.message);
+            } finally {
+                btnSave.innerText = "Guardar Insignia";
+                btnSave.disabled = false;
+            }
         };
 
         window.deleteBadge = async function(docId) { 
@@ -500,71 +487,72 @@
             if(!item) return;
 
             const nameEl = document.getElementById('ar-artifact-name');
+            const rewardEl = document.getElementById('screen-ar-reward');
             if(nameEl) nameEl.innerText = item.name;
+            if(rewardEl) rewardEl.classList.remove('hidden');
             
-            const screenAr = document.getElementById('screen-ar-reward');
-            if(screenAr) screenAr.classList.remove('hidden');
-            
-            const btnCollect = document.getElementById('btn-collect');
-            if(btnCollect) {
-                btnCollect.onclick = async () => {
-                    if(screenAr) screenAr.classList.add('hidden');
-                    window.appState.activeARId = null;
-                    
-                    window.appState.foundIds.add(artifactId);
-                    if(window.appState.db) {
-                        await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { foundList: Array.from(window.appState.foundIds) });
-                    }
-                    if(window.renderPlayerClues) window.renderPlayerClues();
+            document.getElementById('btn-collect').onclick = async () => {
+                if(rewardEl) rewardEl.classList.add('hidden');
+                window.appState.activeARId = null;
+                
+                window.appState.foundIds.add(artifactId);
+                if(window.appState.db) {
+                    await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { foundList: Array.from(window.appState.foundIds) });
+                }
+                if(window.renderPlayerClues) window.renderPlayerClues();
 
-                    // EVALUAR BADGES
-                    const newSize = window.appState.foundIds.size;
-                    const earnedBadge = window.appState.badges.find(b => parseInt(b.threshold) === newSize);
+                // EVALUAR BADGES
+                const newSize = window.appState.foundIds.size;
+                const earnedBadge = window.appState.badges.find(b => parseInt(b.threshold) === newSize);
+                
+                if(earnedBadge) {
+                    const badgeNameEl = document.getElementById('badge-name-display');
+                    const badgeContainer = document.getElementById('badge-display-container');
+                    const badgeModal = document.getElementById('modal-badge');
                     
-                    if(earnedBadge) {
-                        const nameDisplay = document.getElementById('badge-name-display');
-                        const iconDisplay = document.getElementById('badge-icon-display');
-                        if(nameDisplay) nameDisplay.innerText = earnedBadge.name;
-                        if(iconDisplay) iconDisplay.className = `fa-solid ${earnedBadge.icon} text-sgx-copper text-6xl`;
-                        
-                        const modalBadge = document.getElementById('modal-badge');
-                        if(modalBadge) modalBadge.classList.remove('hidden');
+                    if(badgeNameEl) badgeNameEl.innerText = earnedBadge.name;
+                    
+                    if (badgeContainer) {
+                        if (earnedBadge.imageUrl) {
+                            badgeContainer.innerHTML = `<img src="${earnedBadge.imageUrl}" class="w-full h-full object-cover">`;
+                        } else {
+                            badgeContainer.innerHTML = `<i class="fa-solid ${earnedBadge.icon} text-sgx-copper text-6xl"></i>`;
+                        }
                     }
-                };
-            }
+                    if(badgeModal) badgeModal.classList.remove('hidden');
+                }
+            };
         };
 
-        // Iniciar base de datos
-        document.addEventListener('DOMContentLoaded', () => {
-            initApp();
-        });
+        initApp();
     </script>
 
     <!-- UI GENERAL & AR INJECTOR -->
     <script>
         window.showAlert = (msg) => { 
             const a = document.getElementById('alert-message'); 
-            const m = document.getElementById('alert-modal');
-            if(a && m) { a.innerText = msg; m.classList.remove('hidden');} 
+            if(a) { a.innerText = msg; document.getElementById('alert-modal').classList.remove('hidden');} 
             else alert(msg); 
         };
+        
         window.showScreen = (id) => { 
             ['screen-home', 'screen-instructions', 'screen-dash', 'screen-play'].forEach(s => { const e=document.getElementById(s); if(e)e.classList.add('hidden'); }); 
             const t = document.getElementById(id); if(t) t.classList.remove('hidden'); 
         };
+        
         window.checkAdmin = () => { if(prompt("Acceso SGX:") === "sgx2026") window.showScreen('screen-dash'); };
         
         window.switchAdminTab = (tab) => {
             ['artifacts', 'badges'].forEach(t => {
-                const tEl = document.getElementById(`tab-${t}`);
-                const btnEl = document.getElementById(`tab-btn-${t}`);
-                if(tEl) tEl.classList.add('hidden');
-                if(btnEl) btnEl.className = "flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition";
+                const el = document.getElementById(`tab-${t}`);
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if(el) el.classList.add('hidden');
+                if(btn) btn.className = "flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition";
             });
-            const activeTab = document.getElementById(`tab-${tab}`);
-            const activeBtn = document.getElementById(`tab-btn-${tab}`);
-            if(activeTab) activeTab.classList.remove('hidden');
-            if(activeBtn) activeBtn.className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
+            const el = document.getElementById(`tab-${tab}`);
+            const btn = document.getElementById(`tab-btn-${tab}`);
+            if(el) el.classList.remove('hidden');
+            if(btn) btn.className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
         };
         
         window.updateHUD = () => {
@@ -575,7 +563,7 @@
         
         window.toggleClues = (show) => { const c = document.getElementById('modal-clues'); if(c) show ? c.classList.remove('hidden') : c.classList.add('hidden'); };
 
-        // AR INJECTION (Solo carga cámara cuando el jugador decide jugar)
+        // INYECCIÓN DE CÁMARA
         window.startGame = () => {
             if(!window.appState || window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos en la base de datos.");
             window.showScreen('screen-play');
@@ -587,12 +575,12 @@
             window.appState.artifacts.forEach(item => {
                 let artHTML = `<a-box color="#FDCC0D" depth="0.6" height="0.6" width="0.6" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-box>`;
                 
-                if(item.imageArt) {
+                if(item.artUrl) {
                     if(item.isGLB) {
-                        artHTML = `<a-gltf-model src="${item.imageArt}" position="0 0.5 0" scale="0.5 0.5 0.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-gltf-model>`;
+                        artHTML = `<a-gltf-model src="${item.artUrl}" position="0 0.5 0" scale="0.5 0.5 0.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-gltf-model>`;
                     } else {
                         artHTML = `
-                            <a-image fix-aspect-ratio src="${item.imageArt}" position="0 0.5 0" animation="property: position; to: 0 0.7 0; dir: alternate; dur: 1500; loop: true"></a-image>
+                            <a-image fix-aspect-ratio src="${item.artUrl}" position="0 0.5 0" animation="property: position; to: 0 0.7 0; dir: alternate; dur: 1500; loop: true"></a-image>
                             <a-ring color="#FDCC0D" radius-inner="0.9" radius-outer="1.0" rotation="-90 0 0" animation="property: rotation; to: -90 360 0; loop: true; dur: 4000;"></a-ring>
                         `;
                     }
@@ -616,6 +604,7 @@
             `;
         };
 
+        // ADMIN LISTS
         window.renderAdminList = () => {
             const list = document.getElementById('admin-artifacts-list');
             const count = document.getElementById('list-count');
@@ -625,14 +614,15 @@
             list.innerHTML = '';
             const baseUrl = window.location.href.split('?')[0]; 
             window.appState.artifacts.forEach(item => {
-                const barcodeImgUrl = `https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${item.barcode}.png`;
+                const codeNumber = item.barcode !== undefined ? item.barcode : 0; // Fallback seguro
+                const barcodeImgUrl = `https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
                         <div class="flex justify-between items-start mb-3">
-                            <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-sgx-yellow">Barcode: ${item.barcode}</p></div>
+                            <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-sgx-yellow">Barcode Lógico: ${codeNumber}</p></div>
                             <button onclick="window.deleteArtifact('${item.docId}')" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
                         </div>
-                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}')" class="w-full bg-white text-black font-bold py-2 rounded text-sm hover:bg-gray-200"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta AR</button>
+                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}')" class="w-full bg-white text-black font-bold py-2 rounded text-sm hover:bg-gray-200"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta Imprimible</button>
                     </div>
                 `;
             });
@@ -642,15 +632,17 @@
             const list = document.getElementById('admin-badges-list');
             if (!list) return;
             list.innerHTML = '';
-            if(!window.appState || window.appState.badges.length === 0) {
-                list.innerHTML = '<p class="text-xs text-gray-500 text-center">No hay insignias creadas.</p>';
-                return;
-            }
+            if(!window.appState || window.appState.badges.length === 0) return;
+            
             window.appState.badges.forEach(badge => {
+                const imgHTML = badge.imageUrl 
+                    ? `<img src="${badge.imageUrl}" class="w-10 h-10 rounded-full object-cover border border-sgx-copper">` 
+                    : `<i class="fa-solid ${badge.icon} text-sgx-copper text-xl"></i>`;
+
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex justify-between items-center">
                         <div class="flex items-center space-x-3">
-                            <i class="fa-solid ${badge.icon} text-sgx-copper text-xl"></i>
+                            ${imgHTML}
                             <div><h4 class="font-bold text-white text-sm">${badge.name}</h4><p class="text-xs text-sgx-yellow font-bold">A los ${badge.threshold} artefactos</p></div>
                         </div>
                         <button onclick="window.deleteBadge('${badge.docId}')" class="text-red-500 hover:text-red-400 p-2"><i class="fa-solid fa-trash"></i></button>
@@ -662,7 +654,9 @@
         window.showPrintCard = (name, qrUrl, barcodeUrl) => {
             const nameEl = document.getElementById('print-name'), imgEl = document.getElementById('print-barcode-img'), qrEl = document.getElementById('print-qr'), modal = document.getElementById('modal-print-card');
             if (nameEl && imgEl && qrEl && modal) {
-                nameEl.innerText = name; imgEl.src = barcodeUrl; qrEl.innerHTML = '';
+                nameEl.innerText = name; 
+                imgEl.setAttribute('src', barcodeUrl); 
+                qrEl.innerHTML = '';
                 new QRCode(qrEl, { text: qrUrl, width: 80, height: 80, colorDark : "#0F172A", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.L });
                 modal.classList.remove('hidden');
             }
@@ -677,7 +671,7 @@
                 list.innerHTML += `
                     <div class="bg-gray-800 rounded-xl overflow-hidden border ${found ? 'border-sgx-yellow opacity-60' : 'border-gray-700'} relative">
                         ${found ? '<div class="absolute inset-0 bg-sgx-dark bg-opacity-80 flex items-center justify-center z-10"><i class="fa-solid fa-check-circle text-sgx-yellow text-6xl shadow-lg"></i></div>' : ''}
-                        ${item.imageHint ? `<img src="${item.imageHint}" class="w-full h-32 object-cover">` : `<div class="w-full h-24 bg-gray-900"></div>`}
+                        ${item.imageUrl ? `<img src="${item.imageUrl}" class="w-full h-32 object-cover">` : `<div class="w-full h-24 bg-gray-900"></div>`}
                         <div class="p-4">
                             <h4 class="font-bold text-white text-sm">${item.name}</h4>
                             <p class="text-xs text-gray-400 mt-1"><i class="fa-solid fa-location-dot text-sgx-yellow mr-1"></i> ${item.hint}</p>
