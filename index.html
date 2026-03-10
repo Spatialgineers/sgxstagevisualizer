@@ -35,20 +35,33 @@
         /* CSS EXTREMO PARA MATAR LA BARRA AZUL Y EL SCROLL EN IOS */
         html, body { 
             margin: 0 !important; padding: 0 !important; 
-            width: 100vw !important; height: 100vh !important; 
+            width: 100% !important; height: 100% !important; 
             overflow: hidden !important; background-color: #0F172A; 
-            position: fixed !important; top: 0; left: 0;
+            position: fixed !important; inset: 0;
             overscroll-behavior: none;
         }
         
         /* Contenedor AR al fondo asegurando 100% de la pantalla */
-        #ar-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; overflow: hidden; background: #000; }
-        #arjs-video { z-index: -10 !important; object-fit: cover !important; width: 100vw !important; height: 100vh !important; margin: 0 !important; padding: 0 !important; position: absolute !important; top: 0 !important; left: 0 !important; }
-        .a-canvas { z-index: -5 !important; width: 100vw !important; height: 100vh !important; }
+        #ar-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; overflow: hidden; background: #000; }
+        
+        /* 🔥 FIX IOS BARRA AZUL: Forzamos a la cámara a cubrir el 100% matando los cálculos de AR.js */
+        video#arjs-video, .a-canvas { 
+            z-index: -10 !important; 
+            object-fit: cover !important; 
+            width: 100% !important; 
+            height: 100% !important; 
+            max-width: 100% !important;
+            max-height: 100% !important;
+            margin: 0 !important; 
+            padding: 0 !important; 
+            position: absolute !important; 
+            top: 0 !important; 
+            left: 0 !important; 
+        }
 
         /* Capa UI Base: No scrolleable para no interferir con la cámara */
         #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1000;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;
             pointer-events: none; overflow: hidden;
         }
 
@@ -65,7 +78,7 @@
         .interactive { pointer-events: auto; }
         .hidden { display: none !important; }
         
-        /* 🔥 FIX iOS: Destruir popups molestos de A-Frame */
+        /* FIX iOS: Destruir popups molestos de A-Frame */
         .a-dialog, .a-modal, .a-enter-vr { display: none !important; pointer-events: none !important; opacity: 0 !important; } 
         
         /* Animaciones */
@@ -168,7 +181,7 @@
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">2</div>
-                        <p class="text-sm text-gray-300">Encuentra los <b class="text-white">Símbolos AR</b> físicos en el evento.</p>
+                        <p class="text-sm text-gray-300">Encuentra los <b class="text-white">Símbolos AR</b> (cuadros negros) en el evento real.</p>
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">3</div>
@@ -223,12 +236,13 @@
                         <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
                             <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Crear Insignia</h3>
                             <div class="space-y-4">
-                                <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. Master Explorer)">
+                                <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. Explorador)">
                                 <div class="flex space-x-2">
+                                    <div class="flex-1"><input type="text" id="badge-icon" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Icon (fa-star)" value="fa-medal"></div>
                                     <div class="flex-1"><input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Req. Cantidad"></div>
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">IMAGEN DE LA INSIGNIA</label>
+                                    <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">IMAGEN DE LA INSIGNIA (Opcional)</label>
                                     <input type="file" id="badge-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
                                 </div>
                                 <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2 transition">Guardar Insignia</button>
@@ -241,7 +255,7 @@
             </div>
         </div>
 
-        <!-- MODAL TARJETA IMPRIMIBLE (Barcode Link Arreglado) -->
+        <!-- MODAL TARJETA IMPRIMIBLE -->
         <div id="modal-print-card" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-6 interactive z-[5000]">
             <div class="w-full max-w-sm bg-white border-4 border-sgx-dark p-6 text-center rounded-xl relative shadow-2xl">
                 <button onclick="document.getElementById('modal-print-card').classList.add('hidden')" class="absolute top-2 right-2 text-gray-400 hover:text-black w-8 h-8"><i class="fa-solid fa-xmark text-xl"></i></button>
@@ -253,7 +267,7 @@
                     </div>
                     <div class="w-1/2 flex flex-col items-center">
                         <p class="text-[10px] text-sgx-blue font-bold mb-1 uppercase">2. Apunta Cámara</p>
-                        <!-- URL Segura y Probada de Jerome Etienne -->
+                        <!-- 🔥 FIX DEL BARCODE: Usando raw.githack.com que es seguro y no es bloqueado por Github CORS -->
                         <img id="print-barcode-img" src="" class="w-24 h-24 border-2 border-black object-contain bg-white">
                     </div>
                 </div>
@@ -336,7 +350,7 @@
             measurementId: "G-QV8KZR2V97"
         };
 
-        const appKey = 'sgx-hunt-v12'; // Versión DB Free
+        const appKey = 'sgx-hunt-v12'; 
         
         window.appState = { db: null, auth: null, userId: null, artifacts: [], badges: [], foundIds: new Set(), activeARId: null };
 
@@ -400,8 +414,8 @@
             
             if (isGLB) {
                 // Validación extrema: El límite real de Firestore es 1,048,576 bytes. 
-                if (file.size > 800000) {
-                    window.showAlert("LÍMITE GRATUITO DE GOOGLE: El archivo GLB pesa más de 800KB. Firestore lo rechazará porque supera el límite de 1MB en texto base64. Por favor, redúcelo en Blender o usa una imagen.");
+                if (file.size > 900000) {
+                    window.showAlert("LÍMITE GRATUITO: El archivo GLB pesa más de 900KB. Firestore lo rechazará porque supera el límite gratuito. Redúcelo en Blender.");
                     return callback(null);
                 }
                 const reader = new FileReader();
@@ -451,7 +465,7 @@
                         if (fileArt && !artBase64) {
                             btnSave.innerText = "Guardar Artefacto";
                             btnSave.disabled = false;
-                            return; // Falló por peso excesivo
+                            return; 
                         }
                         
                         try {
@@ -484,22 +498,24 @@
         // ADMIN: GUARDAR BADGE (Directo a Firestore)
         window.saveNewBadge = async function() {
             const name = document.getElementById('badge-name').value;
+            const icon = document.getElementById('badge-icon').value || 'fa-medal';
             const threshold = parseInt(document.getElementById('badge-threshold').value);
             const fileBadge = document.getElementById('badge-image').files[0];
             const btnSave = document.getElementById('btn-save-badge');
 
-            if(!name || !threshold || !fileBadge) return window.showAlert("Nombre, cantidad e imagen son requeridos.");
+            if(!name || !threshold) return window.showAlert("Nombre y cantidad requeridos.");
             
             btnSave.innerText = "Guardando...";
             btnSave.disabled = true;
 
             window.processFileAsBase64(fileBadge, false, async (imgBase64) => {
-                if(window.appState.db && imgBase64) {
+                if(window.appState.db) {
                     await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { 
-                        name, imageUrl: imgBase64, threshold 
+                        name, icon, imageUrl: imgBase64, threshold 
                     });
                     document.getElementById('badge-name').value = '';
                     document.getElementById('badge-threshold').value = '';
+                    document.getElementById('badge-icon').value = 'fa-medal';
                     document.getElementById('badge-image').value = '';
                 }
                 btnSave.innerText = "Guardar Insignia";
@@ -544,7 +560,13 @@
                     const badgeModal = document.getElementById('modal-badge');
                     
                     if(badgeNameEl) badgeNameEl.innerText = earnedBadge.name;
-                    if(badgeContainer) badgeContainer.innerHTML = `<img src="${earnedBadge.imageUrl}" class="w-full h-full object-cover">`;
+                    if(badgeContainer) {
+                        if(earnedBadge.imageUrl) {
+                            badgeContainer.innerHTML = `<img src="${earnedBadge.imageUrl}" class="w-full h-full object-cover">`;
+                        } else {
+                            badgeContainer.innerHTML = `<i class="fa-solid ${earnedBadge.icon} text-sgx-copper text-6xl"></i>`;
+                        }
+                    }
                     if(badgeModal) badgeModal.classList.remove('hidden');
                 }
             };
@@ -641,8 +663,8 @@
             const baseUrl = window.location.href.split('?')[0]; 
             window.appState.artifacts.forEach(item => {
                 const codeNumber = item.barcode !== undefined ? item.barcode : 0; 
-                // URL Estable Original de Jerome Etienne (100% Funcional)
-                const barcodeImgUrl = `https://jeromeetienne.github.io/AR.js/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
+                // 🔥 FIX DEL BARCODE URL: Usando githack que evade los bloqueos de github CORS y content-type
+                const barcodeImgUrl = `https://raw.githack.com/AR-js-org/AR.js/master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
                 
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
@@ -663,10 +685,14 @@
             if(!window.appState || window.appState.badges.length === 0) return;
             
             window.appState.badges.forEach(badge => {
+                const imgHTML = badge.imageUrl 
+                    ? `<img src="${badge.imageUrl}" class="w-10 h-10 rounded-full object-cover border border-sgx-copper">` 
+                    : `<i class="fa-solid ${badge.icon} text-sgx-copper text-xl"></i>`;
+
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex justify-between items-center">
                         <div class="flex items-center space-x-3">
-                            <img src="${badge.imageUrl}" class="w-10 h-10 rounded-full object-cover border border-sgx-copper">
+                            ${imgHTML}
                             <div><h4 class="font-bold text-white text-sm">${badge.name}</h4><p class="text-xs text-sgx-yellow font-bold">A los ${badge.threshold} obj.</p></div>
                         </div>
                         <button onclick="window.deleteBadge('${badge.docId}')" class="text-red-500 hover:text-red-400 p-2"><i class="fa-solid fa-trash"></i></button>
