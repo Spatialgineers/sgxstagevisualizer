@@ -34,20 +34,20 @@
     <style>
         body { margin: 0; overflow: hidden; background-color: #0F172A; }
         
-        /* Capa de Interfaz - Oculta la barra de desplazamiento que molestaba en iOS */
+        /* Capa de Interfaz - Oculta scrollbars por completo para evitar la barra azul en iOS */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;
             pointer-events: none; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none;
         }
-        #ui-layer::-webkit-scrollbar { display: none; }
+        *::-webkit-scrollbar { display: none !important; }
 
         .interactive { pointer-events: auto; }
         .hidden { display: none !important; }
         
-        /* 🔥 FIX iOS: Destruir popups de A-Frame */
+        /* 🔥 FIX iOS: Destruir popups molestos de A-Frame */
         .a-dialog, .a-modal, .a-enter-vr { display: none !important; pointer-events: none !important; } 
         
-        /* Contenedor AR */
+        /* Contenedor AR al fondo */
         #ar-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
         #arjs-video { z-index: -10 !important; object-fit: cover; }
         .a-canvas { z-index: -5 !important; }
@@ -59,13 +59,34 @@
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 
-    <!-- COMPONENTE AR: Lógica de Detección -->
+    <!-- COMPONENTES AR CUSTOM (Anti-Estiramiento y Pop-Out) -->
     <script>
+        // Corrige la proporción de imágenes rectangulares para que no se estiren en el espacio AR
+        AFRAME.registerComponent('fix-aspect-ratio', {
+            init: function () {
+                this.el.addEventListener('materialtextureloaded', (e) => {
+                    const texture = e.detail.texture;
+                    if (texture && texture.image) {
+                        const ratio = texture.image.width / texture.image.height;
+                        if (ratio > 1) { // Horizontal
+                            this.el.setAttribute('width', '1.5');
+                            this.el.setAttribute('height', (1.5 / ratio).toString());
+                        } else { // Vertical o cuadrado
+                            this.el.setAttribute('height', '1.5');
+                            this.el.setAttribute('width', (1.5 * ratio).toString());
+                        }
+                    }
+                });
+            }
+        });
+
+        // Lógica de salto 3D (Pop Out)
         AFRAME.registerComponent('ar-logic', {
             schema: { artifactId: { type: 'string' } },
             init: function () {
                 this.el.addEventListener('markerFound', () => {
                     const screenPlay = document.getElementById('screen-play');
+                    // Solo salta si el usuario está en el HUD de juego activo
                     if (screenPlay && !screenPlay.classList.contains('hidden')) {
                         const wrapper = this.el.querySelector('.model-wrapper');
                         if (wrapper) wrapper.setAttribute('animation__pop', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutElastic');
@@ -100,8 +121,8 @@
             </div>
         </div>
 
-        <!-- PANTALLA INICIO -->
-        <div id="screen-home" class="hidden min-h-screen bg-sgx-dark flex flex-col items-center justify-center p-6 interactive relative">
+        <!-- PANTALLA INICIO (JUGADOR) -->
+        <div id="screen-home" class="hidden min-h-screen bg-sgx-dark flex flex-col items-center justify-center p-6 interactive relative overflow-hidden">
             <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at center, #FDCC0D 1px, transparent 1px); background-size: 30px 30px;"></div>
             <div class="relative z-10 text-center max-w-md w-full slide-up">
                 <div class="w-24 h-24 bg-sgx-blue rounded-2xl rotate-45 mx-auto mb-8 flex items-center justify-center shadow-[0_0_30px_rgba(50,82,123,0.8)] border-2 border-sgx-yellow">
@@ -160,6 +181,7 @@
                     <button onclick="window.switchAdminTab('badges')" id="tab-btn-badges" class="flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md">Insignias</button>
                 </div>
 
+                <!-- ADMIN ARTEFACTOS -->
                 <div id="tab-artifacts">
                     <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
                         <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Nuevo Artefacto</h3>
@@ -171,11 +193,11 @@
                                 <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white">
                             </div>
                             <div>
-                                <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">ARTE 3D POP-OUT (.GLB o .JPG/PNG)</label>
-                                <input type="file" id="item-art-image" accept="image/*,.glb" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-sgx-blue file:text-white">
-                                <p class="text-[9px] text-gray-500 mt-1">Imágenes no se estirarán. GLB Máx: 700KB.</p>
+                                <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">ARTE 3D POP-OUT (Imagen o .GLB)</label>
+                                <input type="file" id="item-art-file" accept="image/*,.glb" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-sgx-blue file:text-white">
+                                <p class="text-[9px] text-gray-500 mt-1">Para Base de Datos Gratis: GLB Máx: ~700KB.</p>
                             </div>
-                            <button onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-500 mt-2 shadow-lg">Guardar Artefacto</button>
+                            <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-500 mt-2 shadow-lg">Guardar Artefacto</button>
                         </div>
                     </div>
                     <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2">Artefactos (<span id="list-count">0</span>)</h3>
@@ -191,7 +213,7 @@
                                 <div class="flex-1"><input type="text" id="badge-icon" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Icon (fa-star)" value="fa-medal"></div>
                                 <div class="flex-1"><input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Req. Cantidad"></div>
                             </div>
-                            <button onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2">Guardar Insignia</button>
+                            <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2">Guardar Insignia</button>
                         </div>
                     </div>
                     <div id="admin-badges-list" class="space-y-3"></div>
@@ -264,7 +286,7 @@
         <div id="modal-badge" class="hidden absolute inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-6 interactive z-[6000] backdrop-blur-md">
             <div class="bg-sgx-dark border-2 border-sgx-copper rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_60px_rgba(184,115,51,0.6)] pop-out relative overflow-hidden">
                 <p class="text-xs text-sgx-copper uppercase tracking-widest mb-4 font-bold">¡Insignia Obtenida!</p>
-                <div class="w-28 h-28 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center shadow-lg">
+                <div class="w-28 h-28 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center shadow-lg overflow-hidden">
                     <i id="badge-icon-display" class="fa-solid fa-star text-sgx-copper text-6xl"></i>
                 </div>
                 <h2 id="badge-name-display" class="font-heading text-2xl font-bold text-white mb-6 uppercase">Master</h2>
@@ -274,12 +296,13 @@
 
     </div>
 
-    <!-- FIREBASE MODULE -->
+    <!-- FIREBASE MODULE & LOGIC (Usando 12.10.0 según el usuario) -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
+        // Configuración exacta proporcionada
         const firebaseConfig = {
             apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
             authDomain: "sgx-ar-hunt.firebaseapp.com",
@@ -290,7 +313,7 @@
             measurementId: "G-QV8KZR2V97"
         };
 
-        const appKey = 'sgx-hunt-v8'; // Reset DB
+        const appKey = 'sgx-hunt-v9'; // Cambio de Key para reiniciar datos corruptos
         
         window.appState = { db: null, auth: null, userId: null, artifacts: [], badges: [], foundIds: new Set(), activeARId: null };
 
@@ -299,18 +322,22 @@
                 const app = initializeApp(firebaseConfig);
                 window.appState.auth = getAuth(app);
                 window.appState.db = getFirestore(app);
+                
                 await signInAnonymously(window.appState.auth);
                 onAuthStateChanged(window.appState.auth, (user) => {
                     if (user) { window.appState.userId = user.uid; loadData(); }
                 });
             } catch (e) {
-                document.getElementById('loading-screen').classList.add('hidden');
-                window.showAlert("Error conectando al servidor.");
+                const ls = document.getElementById('loading-screen');
+                if(ls) ls.classList.add('hidden');
+                window.showAlert("Error iniciando base de datos.");
             }
         }
 
         function loadData() {
             const db = window.appState.db;
+            if(!db) return;
+
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'items'), (snapshot) => {
                 window.appState.artifacts = [];
                 snapshot.forEach(doc => window.appState.artifacts.push({ docId: doc.id, ...doc.data() }));
@@ -320,9 +347,16 @@
                 if(window.renderPlayerClues) window.renderPlayerClues();
                 if(window.updateHUD) window.updateHUD();
                 
-                document.getElementById('loading-screen').classList.add('hidden');
-                if(!document.getElementById('screen-play').classList.contains('hidden') === false && document.getElementById('screen-dash').classList.contains('hidden')) {
-                    document.getElementById('screen-home').classList.remove('hidden');
+                const ls = document.getElementById('loading-screen');
+                const sh = document.getElementById('screen-home');
+                const sp = document.getElementById('screen-play');
+                const sd = document.getElementById('screen-dash');
+                
+                if(ls) ls.classList.add('hidden');
+                
+                // Solo muestra Home si no está jugando ni en dashboard
+                if(sh && (!sp || sp.classList.contains('hidden')) && (!sd || sd.classList.contains('hidden'))) {
+                    sh.classList.remove('hidden');
                 }
             });
 
@@ -333,13 +367,15 @@
                 if(window.renderBadgesList) window.renderBadgesList();
             });
 
-            onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
-                if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
-                if(window.updateHUD) window.updateHUD();
-            });
+            if(window.appState.userId) {
+                onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
+                    if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
+                    if(window.updateHUD) window.updateHUD();
+                });
+            }
         }
 
-        // COMPRESORES AVANZADOS
+        // CARGA DIRECTA A BASE DE DATOS (Sin Firebase Storage) - Limite 700kb para Firestore
         window.processHintImage = (file, callback) => {
             if(!file) return callback(null);
             const reader = new FileReader();
@@ -347,10 +383,10 @@
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    const MAX = 400; const scale = Math.min(MAX / img.width, 1);
+                    const MAX = 300; const scale = Math.min(MAX / img.width, 1);
                     canvas.width = img.width * scale; canvas.height = img.height * scale;
                     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    callback(canvas.toDataURL('image/jpeg', 0.6));
+                    callback(canvas.toDataURL('image/jpeg', 0.5));
                 };
                 img.src = e.target.result;
             };
@@ -360,12 +396,15 @@
         window.processArtFile = (file, isGLB, callback) => {
             if(!file) return callback(null);
             if(isGLB) {
-                if(file.size > 800000) { window.showAlert("GLB muy pesado. Max: 800KB"); return callback(null); }
+                // Verificar límite de base de datos gratuita (~1MB Firestore Limit)
+                if(file.size > 700000) { 
+                    window.showAlert("GLB muy pesado para base de datos gratuita. Máximo: 700KB."); 
+                    return callback(null); 
+                }
                 const reader = new FileReader();
-                reader.onload = (e) => callback(e.target.result);
+                reader.onload = (e) => callback(e.target.result); // Base64
                 reader.readAsDataURL(file);
             } else {
-                // Algoritmo Anti-Stretching (Crea un canvas cuadrado 512x512 y centra la imagen)
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const img = new Image();
@@ -373,11 +412,11 @@
                         const canvas = document.createElement('canvas');
                         canvas.width = 512; canvas.height = 512;
                         const ctx = canvas.getContext('2d');
-                        ctx.clearRect(0,0, 512, 512); // Transparente
+                        ctx.clearRect(0,0, 512, 512);
                         const scale = Math.min(512 / img.width, 512 / img.height);
                         const w = img.width * scale; const h = img.height * scale;
                         ctx.drawImage(img, (512-w)/2, (512-h)/2, w, h);
-                        callback(canvas.toDataURL('image/png', 0.8));
+                        callback(canvas.toDataURL('image/png', 0.7)); // PNG para mantener transparencias
                     };
                     img.src = e.target.result;
                 };
@@ -385,21 +424,22 @@
             }
         };
 
-        // ADMIN: GUARDAR
+        // ADMIN: GUARDAR ARTEFACTO (Directo a Firestore en Base64)
         window.saveNewArtifact = function() {
             const name = document.getElementById('item-name').value;
             const hint = document.getElementById('item-hint').value;
             const fileHint = document.getElementById('item-hint-image').files[0];
-            const fileArt = document.getElementById('item-art-image').files[0];
+            const fileArt = document.getElementById('item-art-file').files[0];
+            const btnSave = document.getElementById('btn-save-artifact');
 
             if (!name || !hint) return window.showAlert("Nombre y pista obligatorios.");
-            const nameInput = document.getElementById('item-name');
-            nameInput.value = "Guardando...";
+            
+            btnSave.innerText = "Procesando...";
+            btnSave.disabled = true;
 
-            // Lógica correcta para buscar el siguiente barcode disponible
-            const usedBarcodes = window.appState.artifacts.map(a => a.barcode);
+            const usedBarcodes = window.appState.artifacts.map(a => parseInt(a.barcode));
             let nextBarcode = 0;
-            while(usedBarcodes.includes(nextBarcode)) nextBarcode++;
+            while(usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
 
             let isGLB = false;
             if(fileArt && fileArt.name.toLowerCase().endsWith('.glb')) isGLB = true;
@@ -407,96 +447,141 @@
             window.processHintImage(fileHint, (hintBase64) => {
                 window.processArtFile(fileArt, isGLB, async (artBase64) => {
                     try {
-                        await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
-                            id: Date.now().toString(), name, hint, barcode: nextBarcode, imageHint: hintBase64, imageArt: artBase64, isGLB: isGLB
-                        });
-                        nameInput.value = ''; document.getElementById('item-hint').value = '';
-                        document.getElementById('item-hint-image').value = ''; document.getElementById('item-art-image').value = '';
-                    } catch (e) { window.showAlert("Error subiendo datos. Verifica tamaño."); nameInput.value = ''; }
+                        if(window.appState.db) {
+                            await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
+                                id: Date.now().toString(), name, hint, barcode: nextBarcode, imageHint: hintBase64, imageArt: artBase64, isGLB: isGLB
+                            });
+                        }
+                        document.getElementById('item-name').value = '';
+                        document.getElementById('item-hint').value = '';
+                        document.getElementById('item-hint-image').value = '';
+                        document.getElementById('item-art-file').value = '';
+                    } catch (e) {
+                        window.showAlert("Fallo la subida. Archivo muy grande para DB gratuita.");
+                    } finally {
+                        btnSave.innerText = "Guardar Artefacto";
+                        btnSave.disabled = false;
+                    }
                 });
             });
         };
 
-        window.deleteArtifact = async function(docId) { if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); };
-        
+        window.deleteArtifact = async function(docId) { 
+            if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); 
+        };
+
+        // ADMIN: GUARDAR BADGE (Directo a Firestore)
         window.saveNewBadge = async function() {
             const name = document.getElementById('badge-name').value;
             const icon = document.getElementById('badge-icon').value;
             const threshold = parseInt(document.getElementById('badge-threshold').value);
-            if(!name || !threshold) return window.showAlert("Faltan datos de insignia.");
-            if(window.appState.db) {
-                await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { name, icon, threshold });
-                document.getElementById('badge-name').value = ''; document.getElementById('badge-threshold').value = '';
-            }
+
+            if(!name || !threshold) return window.showAlert("Faltan datos de la insignia.");
+            
+            try {
+                if(window.appState.db) {
+                    await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { name, icon, threshold });
+                    document.getElementById('badge-name').value = '';
+                    document.getElementById('badge-threshold').value = '';
+                }
+            } catch(e) { window.showAlert("Error guardando insignia."); }
         };
 
-        window.deleteBadge = async function(docId) { if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges', docId)); };
+        window.deleteBadge = async function(docId) { 
+            if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges', docId)); 
+        };
 
-        // TRIGGER AR 
+        // EVENTO: ARTEFACTO ENCONTRADO
         window.triggerFound = function(artifactId) {
             if (window.appState.foundIds.has(artifactId) || window.appState.activeARId === artifactId) return; 
             window.appState.activeARId = artifactId;
+            
             const item = window.appState.artifacts.find(a => a.id === artifactId);
             if(!item) return;
 
-            document.getElementById('ar-artifact-name').innerText = item.name;
-            document.getElementById('screen-ar-reward').classList.remove('hidden');
+            const nameEl = document.getElementById('ar-artifact-name');
+            if(nameEl) nameEl.innerText = item.name;
             
-            document.getElementById('btn-collect').onclick = async () => {
-                document.getElementById('screen-ar-reward').classList.add('hidden');
-                window.appState.activeARId = null;
-                
-                window.appState.foundIds.add(artifactId);
-                if(window.appState.db) {
-                    await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { foundList: Array.from(window.appState.foundIds) });
-                }
-                if(window.renderPlayerClues) window.renderPlayerClues();
+            const screenAr = document.getElementById('screen-ar-reward');
+            if(screenAr) screenAr.classList.remove('hidden');
+            
+            const btnCollect = document.getElementById('btn-collect');
+            if(btnCollect) {
+                btnCollect.onclick = async () => {
+                    if(screenAr) screenAr.classList.add('hidden');
+                    window.appState.activeARId = null;
+                    
+                    window.appState.foundIds.add(artifactId);
+                    if(window.appState.db) {
+                        await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { foundList: Array.from(window.appState.foundIds) });
+                    }
+                    if(window.renderPlayerClues) window.renderPlayerClues();
 
-                // BADGE CHECK
-                const newSize = window.appState.foundIds.size;
-                const earnedBadge = window.appState.badges.find(b => parseInt(b.threshold) === newSize);
-                
-                if(earnedBadge) {
-                    document.getElementById('badge-name-display').innerText = earnedBadge.name;
-                    document.getElementById('badge-icon-display').className = `fa-solid ${earnedBadge.icon} text-sgx-copper text-6xl`;
-                    document.getElementById('modal-badge').classList.remove('hidden');
-                }
-            };
+                    // EVALUAR BADGES
+                    const newSize = window.appState.foundIds.size;
+                    const earnedBadge = window.appState.badges.find(b => parseInt(b.threshold) === newSize);
+                    
+                    if(earnedBadge) {
+                        const nameDisplay = document.getElementById('badge-name-display');
+                        const iconDisplay = document.getElementById('badge-icon-display');
+                        if(nameDisplay) nameDisplay.innerText = earnedBadge.name;
+                        if(iconDisplay) iconDisplay.className = `fa-solid ${earnedBadge.icon} text-sgx-copper text-6xl`;
+                        
+                        const modalBadge = document.getElementById('modal-badge');
+                        if(modalBadge) modalBadge.classList.remove('hidden');
+                    }
+                };
+            }
         };
 
-        initApp();
+        // Iniciar base de datos
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
+        });
     </script>
 
-    <!-- UI JS & A-FRAME INJECTOR -->
+    <!-- UI GENERAL & AR INJECTOR -->
     <script>
-        window.showAlert = (msg) => { const a = document.getElementById('alert-message'); if(a) { a.innerText=msg; document.getElementById('alert-modal').classList.remove('hidden');} else alert(msg); };
+        window.showAlert = (msg) => { 
+            const a = document.getElementById('alert-message'); 
+            const m = document.getElementById('alert-modal');
+            if(a && m) { a.innerText = msg; m.classList.remove('hidden');} 
+            else alert(msg); 
+        };
         window.showScreen = (id) => { 
             ['screen-home', 'screen-instructions', 'screen-dash', 'screen-play'].forEach(s => { const e=document.getElementById(s); if(e)e.classList.add('hidden'); }); 
             const t = document.getElementById(id); if(t) t.classList.remove('hidden'); 
         };
-        window.checkAdmin = () => { if(prompt("Acceso Creador:") === "sgx2026") window.showScreen('screen-dash'); };
+        window.checkAdmin = () => { if(prompt("Acceso SGX:") === "sgx2026") window.showScreen('screen-dash'); };
+        
         window.switchAdminTab = (tab) => {
             ['artifacts', 'badges'].forEach(t => {
-                document.getElementById(`tab-${t}`).classList.add('hidden');
-                document.getElementById(`tab-btn-${t}`).className = "flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition";
+                const tEl = document.getElementById(`tab-${t}`);
+                const btnEl = document.getElementById(`tab-btn-${t}`);
+                if(tEl) tEl.classList.add('hidden');
+                if(btnEl) btnEl.className = "flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition";
             });
-            document.getElementById(`tab-${tab}`).classList.remove('hidden');
-            document.getElementById(`tab-btn-${tab}`).className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
+            const activeTab = document.getElementById(`tab-${tab}`);
+            const activeBtn = document.getElementById(`tab-btn-${tab}`);
+            if(activeTab) activeTab.classList.remove('hidden');
+            if(activeBtn) activeBtn.className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
         };
+        
         window.updateHUD = () => {
             const t = document.getElementById('hud-total'), f = document.getElementById('hud-found');
             if(t && window.appState) t.innerText = window.appState.artifacts.length || 0;
             if(f && window.appState) f.innerText = window.appState.foundIds.size || 0;
         };
+        
         window.toggleClues = (show) => { const c = document.getElementById('modal-clues'); if(c) show ? c.classList.remove('hidden') : c.classList.add('hidden'); };
 
-        // AR INJECTION (Only runs when PLAY is clicked)
+        // AR INJECTION (Solo carga cámara cuando el jugador decide jugar)
         window.startGame = () => {
-            if(!window.appState || window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos disponibles.");
+            if(!window.appState || window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos en la base de datos.");
             window.showScreen('screen-play');
             
             const container = document.getElementById('ar-container');
-            if(!container || container.innerHTML.trim() !== '') return; // Ya inyectado
+            if(!container || container.innerHTML.trim() !== '') return; 
 
             let markersHTML = '';
             window.appState.artifacts.forEach(item => {
@@ -506,9 +591,8 @@
                     if(item.isGLB) {
                         artHTML = `<a-gltf-model src="${item.imageArt}" position="0 0.5 0" scale="0.5 0.5 0.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-gltf-model>`;
                     } else {
-                        // Imagen sin distorsión gracias al canvas 512x512
                         artHTML = `
-                            <a-image src="${item.imageArt}" position="0 0.5 0" width="1.5" height="1.5" animation="property: position; to: 0 0.7 0; dir: alternate; dur: 1500; loop: true"></a-image>
+                            <a-image fix-aspect-ratio src="${item.imageArt}" position="0 0.5 0" animation="property: position; to: 0 0.7 0; dir: alternate; dur: 1500; loop: true"></a-image>
                             <a-ring color="#FDCC0D" radius-inner="0.9" radius-outer="1.0" rotation="-90 0 0" animation="property: rotation; to: -90 360 0; loop: true; dur: 4000;"></a-ring>
                         `;
                     }
@@ -545,7 +629,7 @@
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
                         <div class="flex justify-between items-start mb-3">
-                            <div><h4 class="font-bold text-white">${item.name}</h4></div>
+                            <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-sgx-yellow">Barcode: ${item.barcode}</p></div>
                             <button onclick="window.deleteArtifact('${item.docId}')" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
                         </div>
                         <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}')" class="w-full bg-white text-black font-bold py-2 rounded text-sm hover:bg-gray-200"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta AR</button>
@@ -558,8 +642,10 @@
             const list = document.getElementById('admin-badges-list');
             if (!list) return;
             list.innerHTML = '';
-            if(!window.appState || window.appState.badges.length === 0) return;
-            
+            if(!window.appState || window.appState.badges.length === 0) {
+                list.innerHTML = '<p class="text-xs text-gray-500 text-center">No hay insignias creadas.</p>';
+                return;
+            }
             window.appState.badges.forEach(badge => {
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex justify-between items-center">
