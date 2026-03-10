@@ -54,6 +54,16 @@
         <p class="text-sm text-gray-400 mt-2" id="loading-text">Autenticando usuario y descargando mundos virtuales.</p>
     </div>
 
+    <!-- MODAL DE MENSAJES CUSTOM (Reemplazo de alert) -->
+    <div id="alert-modal" class="hidden absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center p-6 interactive z-[3000] backdrop-blur-sm">
+        <div class="bg-gray-900 border border-sgx-copper rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl fade-in">
+            <i class="fa-solid fa-triangle-exclamation text-sgx-copper text-4xl mb-3"></i>
+            <h3 class="font-heading text-lg text-white mb-2 uppercase">Aviso</h3>
+            <p id="alert-message" class="text-sm text-gray-300 mb-6">Mensaje de error.</p>
+            <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">Entendido</button>
+        </div>
+    </div>
+
     <!-- AR SCENE -->
     <div id="ar-container" class="hidden">
         <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" renderer="logarithmicDepthBuffer: true; antialias: true;" id="ar-scene">
@@ -76,14 +86,14 @@
                 </div>
                 <h1 class="font-heading text-4xl text-white mb-2 uppercase tracking-widest">SGX<br><span class="text-sgx-yellow">Cloud Hunt</span></h1>
                 <p class="text-gray-400 mb-2 text-sm">Experiencia Conectada Globalmente</p>
-                <p class="text-xs text-sgx-blue font-bold mb-10 bg-black inline-block px-3 py-1 rounded">Usuario ID: <span id="user-id-display">...</span></p>
+                <p class="text-xs text-sgx-blue font-bold mb-10 bg-black inline-block px-3 py-1 rounded border border-gray-800">Jugador ID: <span id="user-id-display">...</span></p>
                 
                 <div class="space-y-4">
-                    <button onclick="showScreen('screen-dash')" class="w-full bg-sgx-blue text-white font-bold py-4 px-6 rounded-xl hover:bg-blue-700 transition flex items-center justify-center border border-blue-400 shadow-lg">
-                        <i class="fa-solid fa-hammer mr-3"></i> Creador (Dashboard Público)
+                    <button onclick="window.showScreen('screen-dash')" class="w-full bg-sgx-dark text-white font-bold py-4 px-6 rounded-xl hover:bg-gray-800 transition flex items-center justify-center border border-gray-600 shadow-lg">
+                        <i class="fa-solid fa-hammer mr-3 text-sgx-yellow"></i> Panel de Creador
                     </button>
-                    <button onclick="startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl hover:bg-yellow-500 transition flex items-center justify-center shadow-[0_0_15px_rgba(253,204,13,0.5)]">
-                        <i class="fa-solid fa-play mr-3"></i> Jugar Experiencia
+                    <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl hover:bg-yellow-500 transition flex items-center justify-center shadow-[0_0_15px_rgba(253,204,13,0.5)]">
+                        <i class="fa-solid fa-play mr-3"></i> Iniciar Búsqueda AR
                     </button>
                 </div>
             </div>
@@ -94,7 +104,7 @@
             <div class="max-w-md mx-auto fade-in">
                 <div class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4 mt-2">
                     <h2 class="font-heading text-xl text-sgx-yellow"><i class="fa-solid fa-database mr-2"></i> Cloud Dashboard</h2>
-                    <button onclick="showScreen('screen-home')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-2xl"></i></button>
+                    <button onclick="window.showScreen('screen-home')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-2xl"></i></button>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
@@ -102,19 +112,19 @@
                     
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs text-gray-400 mb-1">Nombre / Título</label>
+                            <label class="block text-xs text-gray-400 mb-1">Nombre del Objeto</label>
                             <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Ej. El Artefacto Perdido">
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-400 mb-1">Pista para el jugador</label>
-                            <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Ej. Busca cerca de la entrada..."></textarea>
+                            <label class="block text-xs text-gray-400 mb-1">Pista (Hint)</label>
+                            <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Ej. Busca cerca de la entrada principal..."></textarea>
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-400 mb-1">Foto de Referencia (Se comprime para la Nube)</label>
+                            <label class="block text-xs text-gray-400 mb-1">Foto de Referencia (Se comprime sola)</label>
                             <input type="file" id="item-image" accept="image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-sgx-blue file:text-white hover:file:bg-blue-700">
                         </div>
 
-                        <button onclick="addArtifactToCloud()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-3 rounded-xl hover:bg-yellow-500 transition mt-2">
+                        <button onclick="window.addArtifactToCloud()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-3 rounded-xl hover:bg-yellow-500 transition mt-2">
                             <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Subir a la Base de Datos
                         </button>
                     </div>
@@ -132,49 +142,51 @@
             <div class="flex justify-between items-start fade-in">
                 <div class="bg-sgx-dark bg-opacity-90 backdrop-blur-md border border-sgx-blue rounded-2xl p-3 shadow-lg flex items-center space-x-4">
                     <div class="bg-sgx-blue p-3 rounded-xl text-sgx-yellow">
-                        <i class="fa-solid fa-satellite-dish text-xl"></i>
+                        <i class="fa-solid fa-satellite-dish text-xl animate-pulse"></i>
                     </div>
                     <div>
-                        <p class="font-heading text-xs text-gray-300 uppercase tracking-widest">Progreso Guardado</p>
+                        <p class="font-heading text-xs text-gray-300 uppercase tracking-widest">Nube Sincronizada</p>
                         <p class="font-heading text-2xl text-white"><span id="hud-found" class="text-sgx-yellow">0</span><span class="text-gray-500 text-lg">/</span><span id="hud-total" class="text-lg">0</span></p>
                     </div>
                 </div>
-                <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-gray-400 w-12 h-12 rounded-full border border-gray-700 hover:text-white flex items-center justify-center">
+                <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-gray-400 w-12 h-12 rounded-full border border-gray-700 hover:text-white flex items-center justify-center shadow-lg">
                     <i class="fa-solid fa-power-off"></i>
                 </button>
             </div>
 
             <div class="flex flex-col items-center mb-6 space-y-3 slide-up">
-                <button id="btn-simulator" onclick="toggleSimulator(true)" class="hidden bg-sgx-copper text-white font-bold py-2 px-6 rounded-full shadow-lg border border-orange-400 animate-pulse text-sm">
-                    <i class="fa-solid fa-gamepad mr-2"></i> Abrir Simulador
+                <button id="btn-simulator" onclick="window.toggleSimulator(true)" class="hidden bg-sgx-copper text-white font-bold py-2 px-6 rounded-full shadow-lg border border-orange-400 animate-pulse text-sm">
+                    <i class="fa-solid fa-gamepad mr-2"></i> Abrir Simulador AR
                 </button>
-                <button onclick="toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 hover:bg-blue-700 transition flex items-center justify-center tracking-wide uppercase">
+                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 hover:bg-blue-700 transition flex items-center justify-center tracking-wide uppercase">
                     <i class="fa-solid fa-map text-xl mr-3"></i> Ver Pistas
                 </button>
             </div>
         </div>
 
-        <!-- MODALES (PISTAS, SIMULADOR, VICTORIA) - IGUALES QUE LA VERSIÓN ANTERIOR -->
+        <!-- MODAL DE PISTAS -->
         <div id="modal-clues" class="hidden absolute inset-0 bg-sgx-dark bg-opacity-95 flex flex-col items-center p-4 interactive z-50 overflow-y-auto backdrop-blur-md">
             <div class="w-full max-w-md mt-2 fade-in">
                 <div class="flex justify-between items-center mb-6 bg-gray-900 p-4 rounded-xl border border-sgx-yellow sticky top-0 z-10 shadow-lg">
-                    <h2 class="font-heading text-lg text-white"><i class="fa-solid fa-map text-sgx-yellow mr-2"></i> Objetivos Globales</h2>
-                    <button onclick="toggleClues(false)" class="text-gray-400 hover:text-white text-2xl w-8 h-8"><i class="fa-solid fa-xmark"></i></button>
+                    <h2 class="font-heading text-lg text-white"><i class="fa-solid fa-map text-sgx-yellow mr-2"></i> Objetivos de la Nube</h2>
+                    <button onclick="window.toggleClues(false)" class="text-gray-400 hover:text-white text-2xl w-8 h-8"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div id="clues-list" class="space-y-4 pb-10"></div>
             </div>
         </div>
 
-        <div id="modal-simulator" class="hidden absolute inset-0 bg-gray-900 flex flex-col items-center justify-center p-6 interactive z-50">
+        <!-- MODAL SIMULADOR (Para navegadores sin cámara) -->
+        <div id="modal-simulator" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-6 interactive z-50 backdrop-blur-sm">
             <div class="bg-sgx-dark border border-sgx-copper rounded-2xl p-6 max-w-sm w-full shadow-2xl slide-up text-center relative overflow-hidden">
-                <button onclick="toggleSimulator(false)" class="absolute top-4 right-4 text-gray-500 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button onclick="window.toggleSimulator(false)" class="absolute top-4 right-4 text-gray-500 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
                 <i class="fa-solid fa-vr-cardboard text-sgx-copper text-4xl mb-3"></i>
                 <h3 class="font-heading text-lg text-white mb-2 uppercase">Modo Simulador</h3>
-                <p class="text-xs text-gray-400 mb-6">Como estás en un entorno que bloquea la cámara, usa estos botones para simular que escaneaste un marcador físico. Esto se guardará en la nube.</p>
+                <p class="text-xs text-gray-400 mb-6">La cámara está bloqueada. Usa estos botones para simular que escaneaste un marcador físico. El progreso irá a la nube.</p>
                 <div id="sim-buttons" class="space-y-3"></div>
             </div>
         </div>
 
+        <!-- TOAST NOTIFICATION -->
         <div id="toast" class="hidden absolute top-32 left-0 w-full flex justify-center interactive z-50">
             <div class="bg-sgx-yellow text-sgx-dark px-6 py-4 rounded-2xl shadow-[0_0_30px_rgba(253,204,13,0.5)] flex items-center slide-up border-2 border-white">
                 <i class="fa-solid fa-cloud-arrow-down text-3xl mr-4"></i>
@@ -185,13 +197,14 @@
             </div>
         </div>
 
+        <!-- PANTALLA DE VICTORIA -->
         <div id="screen-victory" class="hidden absolute inset-0 bg-sgx-dark flex flex-col items-center justify-center p-6 interactive z-50">
             <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at center, #FDCC0D 0%, transparent 70%);"></div>
             <div class="bg-gray-900 border border-sgx-yellow rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl fade-in relative z-10">
                 <div class="w-24 h-24 bg-sgx-dark rounded-full border-4 border-sgx-yellow mx-auto mb-6 flex items-center justify-center shadow-[0_0_40px_rgba(253,204,13,0.6)]">
                     <i class="fa-solid fa-trophy text-sgx-yellow text-5xl"></i>
                 </div>
-                <h2 class="font-heading text-2xl font-bold text-white mb-2 uppercase tracking-widest">¡Reto Completado!</h2>
+                <h2 class="font-heading text-2xl font-bold text-white mb-2 uppercase tracking-widest">¡Misión Cumplida!</h2>
                 <p class="text-gray-300 mb-6 text-sm">Tu progreso ha sido sincronizado exitosamente con los servidores de Spatialgineers.</p>
                 <div class="bg-sgx-dark rounded-xl p-4 mb-8 border border-gray-700">
                     <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Badge Desbloqueado</p>
@@ -204,157 +217,108 @@
         </div>
     </div>
 
-    <!-- FIREBASE & APP LOGIC -->
+    <!-- FIREBASE MODULE -->
     <script type="module">
+        // Importaciones oficiales de Firebase 11.6.1 para estabilidad máxima con A-Frame
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // NOTA PARA DANELSON: Cuando alojes esto en tu propio servidor (fuera de esta plataforma), 
-        // reemplaza `__firebase_config` con tu propio objeto JSON de Firebase.
-        let firebaseConfig = {
-    apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
-    authDomain: "sgx-ar-hunt.firebaseapp.com",
-    projectId: "sgx-ar-hunt",
-    storageBucket: "sgx-ar-hunt.firebasestorage.app",
-    messagingSenderId: "275961437368",
-    appId: "1:275961437368:web:374b6fe7332a49e680284d",
-    measurementId: "G-QV8KZR2V97"
-  };
+        // CONFIGURACIÓN DE TU BASE DE DATOS (Inyectada desde tu prompt)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
+            authDomain: "sgx-ar-hunt.firebaseapp.com",
+            projectId: "sgx-ar-hunt",
+            storageBucket: "sgx-ar-hunt.firebasestorage.app",
+            messagingSenderId: "275961437368",
+            appId: "1:275961437368:web:374b6fe7332a49e680284d",
+            measurementId: "G-QV8KZR2V97"
+        };
 
-        // Variables Globales de Estado
+        const appId = 'sgx-ar-hunt';
+
+        // Estado Global App
         window.appState = {
-            db: null,
-            auth: null,
-            userId: null,
-            artifacts: [], // Lista pública de artefactos
-            foundIds: new Set(), // Progreso privado del usuario
+            db: null, auth: null, userId: null,
+            artifacts: [], foundIds: new Set(),
             isGameActive: false
         };
 
-        // INICIALIZACIÓN DE FIREBASE
+        // Inicializar Firebase
         async function initApp() {
             try {
                 const app = initializeApp(firebaseConfig);
                 window.appState.auth = getAuth(app);
                 window.appState.db = getFirestore(app);
 
-                // Autenticación segura (Regla 3: Auth Before Queries)
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(window.appState.auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(window.appState.auth);
-                }
+                // Autenticación Anónima (Requisito SGX para BD Privadas)
+                await signInAnonymously(window.appState.auth);
 
                 onAuthStateChanged(window.appState.auth, (user) => {
                     if (user) {
                         window.appState.userId = user.uid;
-                        document.getElementById('user-id-display').innerText = user.uid.substring(0, 8) + '...';
-                        loadCloudData(); // Iniciar suscripciones a la BD
+                        document.getElementById('user-id-display').innerText = user.uid.substring(0, 8);
+                        loadCloudData();
                     }
                 });
             } catch (error) {
-                console.error("Error conectando a Firebase. Asegúrate de tener la configuración.", error);
-                document.getElementById('loading-text').innerText = "Error de conexión. Fallback a modo local.";
-                setTimeout(() => hideLoading(), 2000);
+                console.error(error);
+                document.getElementById('loading-text').innerText = "Error de conexión. Revisa consola.";
+                window.showAlert("No se pudo conectar a Firebase. Revisa que el inicio de sesión anónimo esté activado en Firebase Authentication.");
+                setTimeout(() => window.hideLoading(), 3000);
             }
         }
 
-        // CARGAR DATOS DESDE LA NUBE
+        // Descargar datos de Firestore (Públicos y Privados)
         function loadCloudData() {
             const db = window.appState.db;
             const userId = window.appState.userId;
             
-            // 1. Suscripción a la Lista Pública de Artefactos (Regla 1: Rutas Estrictas)
+            // Suscripción Pública: Los Artefactos creados en el Dashboard
             const artifactsRef = collection(db, 'artifacts', appId, 'public', 'data', 'hunt_items');
-            
             onSnapshot(artifactsRef, (snapshot) => {
                 window.appState.artifacts = [];
-                snapshot.forEach(doc => {
-                    window.appState.artifacts.push({ docId: doc.id, ...doc.data() });
-                });
-                
-                // Ordenar por código de barras para que tenga sentido
+                snapshot.forEach(doc => window.appState.artifacts.push({ docId: doc.id, ...doc.data() }));
                 window.appState.artifacts.sort((a, b) => a.barcode - b.barcode);
                 
                 if(window.renderDashboard) window.renderDashboard();
                 if(window.appState.isGameActive) window.renderClues();
-                hideLoading();
+                window.hideLoading();
             }, (error) => {
-                console.error("Error leyendo artefactos", error);
+                console.error("Error BD", error);
+                window.showAlert("Faltan permisos en Firestore. Asegúrate de tener las reglas en 'Test Mode'.");
             });
 
-            // 2. Suscripción al Progreso Privado del Usuario
+            // Suscripción Privada: El progreso del jugador actual
             const progressRef = doc(db, 'artifacts', appId, 'users', userId, 'player_state', 'progress');
-            
             onSnapshot(progressRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    window.appState.foundIds = new Set(data.foundList || []);
-                } else {
-                    // Crear documento de progreso si es un usuario nuevo
-                    setDoc(progressRef, { foundList: [] });
-                }
-                if(window.appState.isGameActive) {
-                    updateHUD();
-                }
-            }, (error) => {
-                console.error("Error leyendo progreso", error);
-            });
+                if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
+                else setDoc(progressRef, { foundList: [] }); // Inicializar
+                if(window.appState.isGameActive) window.updateHUD();
+            }, (error) => console.error(error));
         }
 
-        function hideLoading() {
-            document.getElementById('loading-screen').classList.add('hidden');
-            document.getElementById('screen-home').classList.remove('hidden');
-        }
-
-        // --- FUNCIONES EXPORTADAS AL ENTORNO WINDOW (Para el HTML onClick) ---
-        
-        // Compresión de imagen para evitar llenar Firestore (Máximo ~30KB)
-        window.resizeImageForCloud = function(file, callback) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 250;
-                    const scale = MAX_WIDTH / img.width;
-                    canvas.width = MAX_WIDTH;
-                    canvas.height = img.height * scale;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    callback(canvas.toDataURL('image/jpeg', 0.5)); 
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-
+        // EXPORTAR FUNCIONES AL DOM
         window.addArtifactToCloud = async function() {
             const name = document.getElementById('item-name').value;
             const hint = document.getElementById('item-hint').value;
             const fileInput = document.getElementById('item-image');
 
-            if (!name || !hint) return alert("Nombre y pista son obligatorios.");
-            if (!window.appState.db) return alert("No hay conexión a la nube.");
+            if (!name || !hint) return window.showAlert("El nombre y la pista son obligatorios.");
+            if (!window.appState.db) return window.showAlert("Conexión a la nube perdida.");
 
-            // El siguiente barcode es el tamaño actual de la lista
             const barcodeValue = window.appState.artifacts.length; 
-            const db = window.appState.db;
-            const artifactsRef = collection(db, 'artifacts', appId, 'public', 'data', 'hunt_items');
+            const artifactsRef = collection(window.appState.db, 'artifacts', appId, 'public', 'data', 'hunt_items');
 
             const uploadData = async (imgBase64) => {
                 try {
                     document.getElementById('item-name').value = 'Subiendo...';
-                    await addDoc(artifactsRef, {
-                        id: Date.now(), name, hint, barcode: barcodeValue, image: imgBase64
-                    });
+                    await addDoc(artifactsRef, { id: Date.now(), name, hint, barcode: barcodeValue, image: imgBase64 });
                     document.getElementById('item-name').value = '';
                     document.getElementById('item-hint').value = '';
                     fileInput.value = '';
                 } catch (e) {
-                    console.error("Error subiendo artefacto:", e);
-                    alert("Error subiendo datos. Intenta con una foto de menor peso.");
+                    window.showAlert("Error subiendo datos a Firebase. ¿Está en Test Mode?");
                 }
             };
 
@@ -363,21 +327,16 @@
         }
 
         window.deleteCloudArtifact = async function(docId) {
-            if(!window.appState.db) return;
-            try {
-                await deleteDoc(doc(window.appState.db, 'artifacts', appId, 'public', 'data', 'hunt_items', docId));
-            } catch(e) {
-                console.error("Error borrando:", e);
-            }
+            try { await deleteDoc(doc(window.appState.db, 'artifacts', appId, 'public', 'data', 'hunt_items', docId)); } 
+            catch(e) { window.showAlert("No se pudo borrar el artefacto."); }
         }
 
         window.registerCloudFind = async function(artifactId) {
-            if (window.appState.foundIds.has(artifactId)) return; // Ya lo encontró
+            if (window.appState.foundIds.has(artifactId)) return;
             
             window.appState.foundIds.add(artifactId);
             const item = window.appState.artifacts.find(a => a.id === artifactId);
             
-            // UI Local Updates
             window.updateHUD();
             document.getElementById('toast-msg').innerText = item.name;
             const toast = document.getElementById('toast');
@@ -386,17 +345,11 @@
             window.renderClues();
             window.buildSimulator(); 
 
-            // Guardar progreso en la Nube
             if (window.appState.db && window.appState.userId) {
-                try {
-                    const progressRef = doc(window.appState.db, 'artifacts', appId, 'users', window.appState.userId, 'player_state', 'progress');
-                    await setDoc(progressRef, { foundList: Array.from(window.appState.foundIds) });
-                } catch (e) {
-                    console.error("Error guardando progreso en la nube", e);
-                }
+                const progressRef = doc(window.appState.db, 'artifacts', appId, 'users', window.appState.userId, 'player_state', 'progress');
+                await setDoc(progressRef, { foundList: Array.from(window.appState.foundIds) });
             }
 
-            // Chequear Victoria
             if (window.appState.foundIds.size === window.appState.artifacts.length && window.appState.artifacts.length > 0) {
                 window.appState.isGameActive = false;
                 setTimeout(() => {
@@ -407,18 +360,46 @@
             }
         }
 
-        // Iniciar la aplicación
         initApp();
     </script>
 
-    <!-- SCRIPTS DE INTERFAZ Y RENDERIZADO -->
+    <!-- SCRIPTS DE INTERFAZ GENERAL -->
     <script>
-        function showScreen(id) {
+        window.hideLoading = () => {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('screen-home').classList.remove('hidden');
+        };
+
+        window.showAlert = (msg) => {
+            document.getElementById('alert-message').innerText = msg;
+            document.getElementById('alert-modal').classList.remove('hidden');
+        };
+
+        window.showScreen = (id) => {
             ['screen-home', 'screen-dash', 'screen-play'].forEach(s => document.getElementById(s).classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
-        }
+        };
 
-        window.renderDashboard = function() {
+        window.resizeImageForCloud = (file, callback) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 300;
+                    const scale = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scale;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    callback(canvas.toDataURL('image/jpeg', 0.6)); 
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.renderDashboard = () => {
             const list = document.getElementById('artifacts-list');
             const artifacts = window.appState.artifacts;
             document.getElementById('list-count').innerText = artifacts.length;
@@ -433,7 +414,7 @@
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex items-center justify-between">
                         <div class="flex items-center space-x-3">
-                            ${item.image ? `<img src="${item.image}" class="w-12 h-12 rounded object-cover">` : `<div class="w-12 h-12 rounded bg-sgx-blue flex items-center justify-center text-sgx-yellow"><i class="fa-solid fa-cube"></i></div>`}
+                            ${item.image ? `<img src="${item.image}" class="w-12 h-12 rounded object-cover border border-gray-700">` : `<div class="w-12 h-12 rounded bg-sgx-blue flex items-center justify-center text-sgx-yellow"><i class="fa-solid fa-cube"></i></div>`}
                             <div>
                                 <p class="font-bold text-white text-sm">${item.name}</p>
                                 <p class="text-xs text-sgx-yellow mt-1">
@@ -441,41 +422,34 @@
                                 </p>
                             </div>
                         </div>
-                        <button onclick="deleteCloudArtifact('${item.docId}')" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                        <button onclick="window.deleteCloudArtifact('${item.docId}')" class="text-gray-500 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 `;
             });
-        }
+        };
 
-        window.startGame = function() {
-            if(window.appState.artifacts.length === 0) return alert("No hay artefactos en la nube. Ve al Dashboard primero.");
+        window.startGame = () => {
+            if(window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos en la nube. Ve al Dashboard y añade al menos uno.");
             
             window.updateHUD();
-            showScreen('screen-play');
-            
+            window.showScreen('screen-play');
             window.buildARScene();
             window.renderClues();
             window.buildSimulator();
             
             window.appState.isGameActive = true;
             
-            // Intentar usar cámara. Si falla (Iframe), mostramos botón simulador.
             navigator.mediaDevices.getUserMedia({ video: true })
-                .then(() => {
-                    document.getElementById('ar-container').classList.remove('hidden');
-                })
-                .catch(err => {
-                    console.warn("Cámara bloqueada. Activando Simulador.");
-                    document.getElementById('btn-simulator').classList.remove('hidden');
-                });
-        }
+                .then(() => document.getElementById('ar-container').classList.remove('hidden'))
+                .catch(err => document.getElementById('btn-simulator').classList.remove('hidden'));
+        };
 
-        window.updateHUD = function() {
+        window.updateHUD = () => {
             document.getElementById('hud-total').innerText = window.appState.artifacts.length;
             document.getElementById('hud-found').innerText = window.appState.foundIds.size;
-        }
+        };
 
-        window.buildARScene = function() {
+        window.buildARScene = () => {
             const scene = document.getElementById('ar-scene');
             document.querySelectorAll('a-marker').forEach(m => m.remove());
 
@@ -498,13 +472,12 @@
                 });
                 scene.appendChild(marker);
             });
-        }
+        };
 
-        window.toggleClues = function(show) {
-            document.getElementById('modal-clues').classList[show ? 'remove' : 'add']('hidden');
-        }
+        window.toggleClues = (show) => document.getElementById('modal-clues').classList[show ? 'remove' : 'add']('hidden');
+        window.toggleSimulator = (show) => document.getElementById('modal-simulator').classList[show ? 'remove' : 'add']('hidden');
 
-        window.renderClues = function() {
+        window.renderClues = () => {
             const list = document.getElementById('clues-list');
             list.innerHTML = '';
             
@@ -516,19 +489,15 @@
                         ${item.image ? `<div class="h-40 w-full bg-black"><img src="${item.image}" class="w-full h-full object-cover opacity-70"></div>` : `<div class="h-24 bg-gray-900 flex items-center justify-center"><i class="fa-solid fa-image text-gray-700 text-4xl"></i></div>`}
                         <div class="p-4">
                             <h3 class="font-bold text-white mb-2 ${found ? 'line-through' : ''}">${item.name}</h3>
-                            <p class="text-xs text-gray-400 mb-2"><i class="fa-solid fa-circle-info text-sgx-yellow mr-1"></i> ${item.hint}</p>
-                            <p class="text-xs text-sgx-blue font-bold bg-black inline-block px-2 py-1 rounded">Marcador Barcode: ${item.barcode}</p>
+                            <p class="text-xs text-gray-400 mb-3"><i class="fa-solid fa-circle-info text-sgx-yellow mr-1"></i> ${item.hint}</p>
+                            <p class="text-xs text-sgx-blue font-bold bg-black inline-block px-2 py-1 rounded border border-gray-700"><i class="fa-solid fa-barcode"></i> Imprime el Barcode 3x3: Valor ${item.barcode}</p>
                         </div>
                     </div>
                 `;
             });
-        }
+        };
 
-        window.toggleSimulator = function(show) {
-            document.getElementById('modal-simulator').classList[show ? 'remove' : 'add']('hidden');
-        }
-
-        window.buildSimulator = function() {
+        window.buildSimulator = () => {
             const container = document.getElementById('sim-buttons');
             container.innerHTML = '';
             
@@ -536,14 +505,14 @@
                 const found = window.appState.foundIds.has(item.id);
                 container.innerHTML += `
                     <button onclick="window.registerCloudFind(${item.id}); window.toggleSimulator(false);" 
-                            class="w-full py-3 px-4 rounded-lg font-bold text-sm transition flex justify-between items-center ${found ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-sgx-blue text-white border border-blue-400 hover:bg-blue-600'}" 
+                            class="w-full py-3 px-4 rounded-lg font-bold text-sm transition flex justify-between items-center ${found ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-sgx-blue text-white border border-blue-400 hover:bg-blue-600'}" 
                             ${found ? 'disabled' : ''}>
-                        <span><i class="fa-solid fa-cloud-arrow-up mr-2"></i> Escanear (Vía Nube): ${item.name}</span>
+                        <span><i class="fa-solid fa-cloud-arrow-up mr-2"></i> Simular Escaneo: ${item.name}</span>
                         ${found ? '<i class="fa-solid fa-check text-sgx-yellow"></i>' : ''}
                     </button>
                 `;
             });
-        }
+        };
     </script>
 </body>
 </html>
