@@ -12,8 +12,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     
-    <!-- A-Frame (Para el 3D) y QRCode.js (Para generar los QRs) -->
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <!-- A-Frame y AR.js (Soporte Matrix Barcodes) -->
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <!-- Configuración SGX Brand Guide -->
@@ -33,18 +34,7 @@
     <style>
         body { margin: 0; overflow: hidden; background-color: #0F172A; }
         
-        /* Capa de video de fondo para iOS */
-        #camera-feed {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: -20; display: none;
-        }
-
-        /* Contenedor A-Frame (3D) transparente encima de la cámara */
-        #ar-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -10;
-        }
-
-        /* Interfaz de Usuario */
+        /* UI Layer */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;
             pointer-events: none; overflow-y: auto;
@@ -52,10 +42,19 @@
         .interactive { pointer-events: auto; }
         .hidden { display: none !important; }
         
+        /* AR.js & A-Frame Fixes for iOS */
+        .a-enter-vr { display: none !important; } 
+        #arjs-video { z-index: -10 !important; object-fit: cover; }
+        .a-canvas { z-index: -5 !important; }
+        
+        /* Animaciones */
         .fade-in { animation: fadeIn 0.4s ease-out forwards; }
         .slide-up { animation: slideUp 0.5s ease-out forwards; }
+        .pop-out { animation: popOut 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes popOut { 0% { transform: scale(0); } 100% { transform: scale(1); } }
         
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0F172A; }
@@ -64,68 +63,42 @@
 </head>
 <body class="font-body text-white">
 
-    <!-- CÁMARA NATIVA (Para iOS / Safari compatibility) -->
-    <video id="camera-feed" autoplay playsinline muted></video>
-
-    <!-- ESCENA 3D A-FRAME (Transparente) -->
+    <!-- AR SCENE (Con bloqueo del popup blanco molesto de iOS) -->
     <div id="ar-container" class="hidden">
-        <a-scene embedded alpha="true" vr-mode-ui="enabled: false" renderer="antialias: true; alpha: true;">
+        <a-scene 
+            embedded 
+            arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" 
+            renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true" 
+            device-orientation-permission-ui="enabled: false" 
+            vr-mode-ui="enabled: false"
+            id="ar-scene">
             <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
-            <a-light type="directional" color="#FDCC0D" intensity="0.5" position="-1 2 1"></a-light>
-            
-            <a-entity camera look-controls position="0 1.6 0">
-                <!-- Objeto 3D que "flota" frente al usuario a 2.5 metros de distancia -->
-                <a-entity id="pop-out-model" position="0 0 -2.5" scale="0 0 0" visible="false">
-                    
-                    <!-- Imagen de Arte subida por Admin -->
-                    <a-image id="ar-art-image" src="" width="1.5" height="1.5" position="0 0 0.1" animation="property: position; to: 0 0.1 0.1; dir: alternate; dur: 2000; loop: true"></a-image>
-                    
-                    <!-- Decoración SGX (Anillos giratorios) -->
-                    <a-ring color="#FDCC0D" radius-inner="1.6" radius-outer="1.65" material="side: double" animation="property: rotation; to: 0 0 360; loop: true; dur: 8000; easing: linear;"></a-ring>
-                    <a-ring color="#32527B" radius-inner="1.7" radius-outer="1.8" material="side: double" animation="property: rotation; to: 360 0 0; loop: true; dur: 6000; easing: linear;"></a-ring>
-                    
-                    <!-- Partículas decorativas -->
-                    <a-box color="#B87333" width="0.1" height="0.1" depth="0.1" position="1.2 1.2 0" animation="property: rotation; to: 360 360 0; loop: true; dur: 3000; easing: linear;"></a-box>
-                    <a-box color="#B87333" width="0.1" height="0.1" depth="0.1" position="-1.2 -1.2 0" animation="property: rotation; to: -360 -360 0; loop: true; dur: 3000; easing: linear;"></a-box>
-
-                </a-entity>
-            </a-entity>
+            <a-entity camera></a-entity>
         </a-scene>
     </div>
 
-    <!-- CAPA DE INTERFAZ -->
+    <!-- UI LAYER -->
     <div id="ui-layer">
         
         <!-- PANTALLA CARGA -->
         <div id="loading-screen" class="absolute inset-0 bg-sgx-dark flex flex-col items-center justify-center z-[2000] interactive">
             <i class="fa-solid fa-satellite-dish text-sgx-yellow text-5xl mb-4 animate-ping"></i>
-            <h2 class="font-heading text-xl text-white tracking-widest uppercase">Sincronizando...</h2>
-            <p class="text-sm text-gray-400 mt-2" id="loading-text">Conectando a Firebase.</p>
-        </div>
-
-        <!-- MODAL ERRORES -->
-        <div id="alert-modal" class="hidden absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center p-6 interactive z-[3000] backdrop-blur-sm">
-            <div class="bg-gray-900 border border-sgx-copper rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl fade-in">
-                <i class="fa-solid fa-triangle-exclamation text-sgx-copper text-4xl mb-3"></i>
-                <h3 class="font-heading text-lg text-white mb-2 uppercase">Aviso</h3>
-                <p id="alert-message" class="text-sm text-gray-300 mb-6"></p>
-                <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">Entendido</button>
-            </div>
+            <h2 class="font-heading text-xl text-white tracking-widest uppercase">Conectando SGX...</h2>
         </div>
 
         <!-- PANTALLA INICIO (JUGADOR) -->
         <div id="screen-home" class="hidden min-h-screen bg-sgx-dark flex flex-col items-center justify-center p-6 interactive relative overflow-hidden">
-            <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at center, #FDCC0D 1px, transparent 1px); background-size: 30px 30px;"></div>
+            <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at center, #FDCC0D 0%, transparent 70%);"></div>
             
             <div class="relative z-10 text-center max-w-md w-full slide-up">
                 <div class="w-24 h-24 bg-sgx-blue rounded-2xl rotate-45 mx-auto mb-8 flex items-center justify-center shadow-[0_0_30px_rgba(50,82,123,0.8)] border-2 border-sgx-yellow">
                     <i class="fa-solid fa-expand text-sgx-yellow text-4xl -rotate-45"></i>
                 </div>
                 <h1 class="font-heading text-4xl text-white mb-2 uppercase tracking-widest">SGX<br><span class="text-sgx-yellow">Scavenger</span></h1>
-                <p class="text-gray-400 mb-10 text-sm">Escanea los códigos físicos para revelar arte 3D oculto en el evento.</p>
+                <p class="text-gray-400 mb-10 text-sm">Escanea los marcadores físicos para revelar arte 3D oculto.</p>
                 
                 <div class="space-y-4">
-                    <button onclick="window.showScreen('screen-play')" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(253,204,13,0.5)] uppercase tracking-wide">
+                    <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(253,204,13,0.5)] uppercase tracking-wide">
                         <i class="fa-solid fa-play mr-2"></i> Jugar Ahora
                     </button>
                     <button onclick="window.showScreen('screen-instructions')" class="w-full bg-sgx-dark text-white font-bold py-4 px-6 rounded-xl border border-gray-600 shadow-lg uppercase tracking-wide">
@@ -150,57 +123,101 @@
                 <div class="space-y-6">
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">1</div>
-                        <p class="text-sm text-gray-300">Revisa la lista de "Pistas" para saber qué ubicaciones buscar en el evento.</p>
+                        <p class="text-sm text-gray-300">Revisa la lista de <b>Pistas</b> para saber dónde buscar.</p>
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">2</div>
-                        <p class="text-sm text-gray-300">Encuentra los Códigos QR físicos escondidos en esas ubicaciones.</p>
+                        <p class="text-sm text-gray-300">Encuentra los Símbolos AR (cuadros negros) escondidos en el evento.</p>
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">3</div>
-                        <p class="text-sm text-gray-300">Apunta la cámara normal de tu celular al QR. Se abrirá la experiencia 3D flotante y recolectarás el artefacto.</p>
+                        <p class="text-sm text-gray-300">Apunta tu cámara al símbolo. El arte 3D saltará hacia ti y coleccionarás el artefacto automáticamente.</p>
                     </div>
                 </div>
-                <button onclick="window.showScreen('screen-home')" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl mt-10 uppercase">Entendido</button>
+                <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl mt-10 uppercase shadow-lg">
+                    Entendido
+                </button>
             </div>
         </div>
 
         <!-- PANTALLA ADMIN (DASHBOARD) -->
         <div id="screen-dash" class="hidden min-h-screen bg-sgx-dark p-4 interactive">
             <div class="max-w-md mx-auto fade-in pb-20">
-                <div class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4 mt-2">
-                    <h2 class="font-heading text-xl text-sgx-yellow"><i class="fa-solid fa-user-shield mr-2"></i> SGX Admin</h2>
-                    <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 p-2 rounded"><i class="fa-solid fa-right-from-bracket"></i></button>
-                </div>
-
-                <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
-                    <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Nuevo Artefacto</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Nombre</label>
-                            <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Pista (Texto)</label>
-                            <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none"></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">IMAGEN PISTA (Dónde está escondido)</label>
-                            <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">IMAGEN 3D (El arte que hace Pop-Out)</label>
-                            <input type="file" id="item-art-image" accept="image/*" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-sgx-blue file:text-white">
-                        </div>
-                        <button onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-500 transition mt-2">
-                            <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Subir y Generar QR
-                        </button>
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-4 mt-2">
+                    <div>
+                        <h2 class="font-heading text-xl text-sgx-yellow"><i class="fa-solid fa-user-shield mr-2"></i> SGX Admin</h2>
                     </div>
+                    <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 px-3 py-2 rounded text-sm"><i class="fa-solid fa-xmark"></i></button>
                 </div>
 
-                <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2">Base de Datos (<span id="list-count">0</span>)</h3>
-                <div id="admin-list" class="space-y-4"></div>
+                <!-- Tabs Admin -->
+                <div class="flex mb-6 space-x-2 bg-gray-900 p-1 rounded-lg">
+                    <button onclick="window.switchAdminTab('artifacts')" id="tab-btn-artifacts" class="flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition">Artefactos</button>
+                    <button onclick="window.switchAdminTab('badges')" id="tab-btn-badges" class="flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition">Insignias Custom</button>
+                </div>
+
+                <!-- TAB ARTEFACTOS -->
+                <div id="tab-artifacts">
+                    <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
+                        <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Nuevo Artefacto</h3>
+                        <div class="space-y-4">
+                            <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. La Botella Mágica)">
+                            <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Pista (Ej. Busca en la barra...)"></textarea>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">IMAGEN PISTA (Dónde buscar)</label>
+                                <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-sgx-yellow mb-1 font-bold">IMAGEN 3D (Arte Pop-Out)</label>
+                                <input type="file" id="item-art-image" accept="image/*" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-sgx-blue file:text-white">
+                            </div>
+                            <button onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-500 mt-2">Guardar Artefacto</button>
+                        </div>
+                    </div>
+                    <div id="admin-artifacts-list" class="space-y-4"></div>
+                </div>
+
+                <!-- TAB INSIGNIAS -->
+                <div id="tab-badges" class="hidden">
+                    <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
+                        <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Programar Insignia</h3>
+                        <div class="space-y-4">
+                            <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. Master Explorer)">
+                            
+                            <div class="flex space-x-2">
+                                <div class="flex-1">
+                                    <label class="block text-xs text-gray-400 mb-1">Ícono (FontAwesome)</label>
+                                    <input type="text" id="badge-icon" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Ej. fa-star" value="fa-medal">
+                                </div>
+                                <div class="flex-1">
+                                    <label class="block text-xs text-sgx-yellow mb-1 font-bold">Req. Artefactos</label>
+                                    <input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Ej. 3">
+                                </div>
+                            </div>
+                            <button onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl border border-blue-500 hover:bg-blue-600 mt-2">Crear Insignia</button>
+                        </div>
+                    </div>
+                    <div id="admin-badges-list" class="space-y-3"></div>
+                </div>
             </div>
+        </div>
+
+        <!-- MODAL DE IMPRESIÓN DE TARJETA AR -->
+        <div id="modal-print-card" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center p-6 interactive z-[5000]">
+            <div class="w-full max-w-sm bg-white border-4 border-black p-6 text-center rounded-xl relative shadow-2xl">
+                <button onclick="document.getElementById('modal-print-card').classList.add('hidden')" class="absolute top-2 right-2 text-black text-xl"><i class="fa-solid fa-xmark"></i></button>
+                <h2 class="font-heading text-xl text-black uppercase font-bold mb-4" id="print-name">Nombre</h2>
+                
+                <p class="text-xs text-gray-500 mb-1">1. Escanea para jugar</p>
+                <div id="print-qr" class="flex justify-center mb-4 border p-2 rounded"></div>
+                
+                <p class="text-xs text-gray-500 mb-1 font-bold">2. Símbolo AR (Apunta la cámara aquí)</p>
+                <!-- Aquí se carga el Barcode Matrix 3x3 oficial de AR.js -->
+                <img id="print-barcode-img" src="" class="w-32 h-32 mx-auto border-4 border-black object-contain mb-4">
+                
+                <p class="text-xs text-black font-bold uppercase">Spatialgineers AR Hunt</p>
+            </div>
+            <p class="mt-4 text-gray-400 text-sm">Toma un screenshot e imprímelo.</p>
         </div>
 
         <!-- PANTALLA JUGADOR (HUD) -->
@@ -213,7 +230,7 @@
                         <p class="font-heading text-xl text-white"><span id="hud-found" class="text-sgx-yellow">0</span> / <span id="hud-total">0</span></p>
                     </div>
                 </div>
-                <button onclick="window.showScreen('screen-home')" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg">
+                <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg">
                     <i class="fa-solid fa-house"></i>
                 </button>
             </div>
@@ -228,54 +245,47 @@
         <div id="modal-clues" class="hidden absolute inset-0 bg-sgx-dark bg-opacity-95 flex flex-col items-center p-4 interactive z-50 overflow-y-auto">
             <div class="w-full max-w-md mt-2 fade-in">
                 <div class="flex justify-between items-center mb-6 bg-gray-900 p-4 rounded-xl border border-sgx-yellow sticky top-0 z-10 shadow-lg">
-                    <h2 class="font-heading text-lg text-white">Pistas Activas</h2>
+                    <h2 class="font-heading text-lg text-white">Ubicaciones</h2>
                     <button onclick="window.toggleClues(false)" class="text-gray-400 text-2xl w-8 h-8"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div id="player-clues-list" class="space-y-4 pb-10"></div>
             </div>
         </div>
 
-        <!-- PANTALLA AR POP-OUT (Cuando escanea un QR) -->
-        <div id="screen-ar-reward" class="hidden absolute inset-0 flex flex-col justify-end p-6 interactive z-[500]">
-            <!-- Fondo sutil para legibilidad UI, la cámara está detrás -->
-            <div class="absolute inset-0 bg-gradient-to-t from-sgx-dark via-transparent to-transparent pointer-events-none"></div>
-            
-            <div class="relative z-10 w-full max-w-md mx-auto bg-gray-900 bg-opacity-80 backdrop-blur-md border border-sgx-yellow p-6 rounded-3xl text-center slide-up shadow-[0_0_30px_rgba(253,204,13,0.4)]">
-                <h3 class="font-heading text-xl text-sgx-yellow uppercase mb-1">¡Marcador Detectado!</h3>
-                <p class="text-white font-bold mb-4" id="ar-artifact-name">Nombre Artefacto</p>
-                <button id="btn-collect" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl uppercase tracking-widest hover:bg-yellow-500">
+        <!-- OVERLAY DE RECOLECCIÓN (Cuando encuentra el marcador) -->
+        <div id="screen-ar-reward" class="hidden absolute bottom-6 w-full flex justify-center interactive z-[500]">
+            <div class="w-full max-w-sm mx-4 bg-gray-900 bg-opacity-90 backdrop-blur-md border-2 border-sgx-yellow p-6 rounded-3xl text-center pop-out shadow-[0_0_40px_rgba(253,204,13,0.5)]">
+                <h3 class="font-heading text-xl text-sgx-yellow uppercase mb-1">¡Artefacto Revelado!</h3>
+                <p class="text-white font-bold mb-4" id="ar-artifact-name">Nombre</p>
+                <button id="btn-collect" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl uppercase tracking-widest hover:bg-yellow-400">
                     <i class="fa-solid fa-download mr-2"></i> Recolectar
                 </button>
             </div>
         </div>
 
-        <!-- PANTALLA VICTORIA -->
-        <div id="screen-victory" class="hidden absolute inset-0 bg-sgx-dark flex flex-col items-center justify-center p-6 interactive z-50">
-            <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at center, #FDCC0D 0%, transparent 70%);"></div>
-            <div class="bg-gray-900 border border-sgx-yellow rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_50px_rgba(253,204,13,0.4)] fade-in relative z-10">
-                <i class="fa-solid fa-crown text-sgx-yellow text-6xl mb-6 drop-shadow-lg"></i>
-                <h2 class="font-heading text-3xl font-bold text-white mb-2 uppercase">¡Completado!</h2>
-                <p class="text-gray-300 mb-6 text-sm">Has recolectado todos los artefactos de la experiencia.</p>
-                <div class="bg-sgx-dark rounded-xl p-4 mb-8 border border-gray-700">
-                    <p class="text-xs text-gray-500 uppercase mb-1">Badge Obtenido</p>
-                    <p class="font-heading text-xl font-bold text-sgx-yellow">Spatial Explorer</p>
+        <!-- MODAL BADGE DESBLOQUEADO (CUSTOM) -->
+        <div id="modal-badge" class="hidden absolute inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-6 interactive z-[6000] backdrop-blur-md">
+            <div class="bg-sgx-dark border-2 border-sgx-copper rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_60px_rgba(184,115,51,0.6)] pop-out relative overflow-hidden">
+                <p class="text-xs text-sgx-copper uppercase tracking-widest mb-4 font-bold">¡Nueva Insignia Obtenida!</p>
+                <div class="w-28 h-28 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center shadow-lg">
+                    <i id="badge-icon-display" class="fa-solid fa-star text-sgx-copper text-6xl"></i>
                 </div>
-                <button onclick="window.showScreen('screen-play')" class="w-full bg-sgx-blue text-white font-bold py-4 rounded-xl border border-blue-500 uppercase">
-                    Cerrar
+                <h2 id="badge-name-display" class="font-heading text-2xl font-bold text-white mb-6 uppercase">Master</h2>
+                <button onclick="document.getElementById('modal-badge').classList.add('hidden')" class="w-full bg-sgx-copper text-white font-bold py-3 rounded-xl hover:bg-orange-600 transition">
+                    Continuar
                 </button>
             </div>
         </div>
 
     </div>
 
-    <!-- FIREBASE Y LOGICA PRINCIPAL -->
+    <!-- FIREBASE & LÓGICA CORE -->
     <script type="module">
-        // Se utiliza la versión 10.12.2 que es altamente estable.
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // CREDENCIALES SGX EXACTAS DEL USUARIO
+        // Credenciales Exactas del Usuario
         const firebaseConfig = {
             apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
             authDomain: "sgx-ar-hunt.firebaseapp.com",
@@ -286,20 +296,13 @@
             measurementId: "G-QV8KZR2V97"
         };
 
-        const appKey = 'sgx-ar-hunt-v3'; 
+        const appKey = 'sgx-ar-hunt-v5'; // Nueva versión DB para evitar conflictos
         
         window.appState = {
             db: null, auth: null, userId: null,
-            artifacts: [], foundIds: new Set()
+            artifacts: [], badges: [], foundIds: new Set(),
+            activeARId: null // Para saber cuál está viendo
         };
-
-        // Fallback de carga por si Firebase falla o tarda
-        const loadingTimeout = setTimeout(() => {
-            if(document.getElementById('loading-screen').classList.contains('hidden') === false) {
-                window.hideLoading();
-                window.showAlert("El servidor tardó mucho en responder. Verifica tu conexión a internet.");
-            }
-        }, 8000);
 
         async function initApp() {
             try {
@@ -308,48 +311,50 @@
                 window.appState.db = getFirestore(app);
 
                 await signInAnonymously(window.appState.auth);
-
                 onAuthStateChanged(window.appState.auth, (user) => {
                     if (user) {
                         window.appState.userId = user.uid;
-                        clearTimeout(loadingTimeout);
                         loadData();
                     }
                 });
             } catch (error) {
-                window.hideLoading();
-                window.showAlert("Error de Servidor: Firebase no está configurado correctamente o falta conexión.");
+                document.getElementById('loading-screen').classList.add('hidden');
+                alert("Error crítico conectando a Firebase.");
             }
         }
 
         function loadData() {
             const db = window.appState.db;
             
-            // Suscripción a BD
+            // 1. Cargar Artefactos
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'items'), (snapshot) => {
                 window.appState.artifacts = [];
                 snapshot.forEach(doc => window.appState.artifacts.push({ docId: doc.id, ...doc.data() }));
+                window.appState.artifacts.sort((a,b) => a.barcode - b.barcode);
                 
                 if(window.renderAdminList) window.renderAdminList();
                 if(window.renderPlayerClues) window.renderPlayerClues();
+                window.buildARScene(); // Construir marcadores 3D dinámicamente
                 window.updateHUD();
-                
-                // Si venimos de un código QR, activar la experiencia
-                checkURLForQRCode();
-                
-                window.hideLoading();
-            }, (err) => {
-                window.hideLoading();
-                window.showAlert("Reglas de Firestore denegadas. Asegúrate de estar en 'Test Mode' en Firebase.");
+                document.getElementById('loading-screen').classList.add('hidden');
             });
 
+            // 2. Cargar Badges Custom
+            onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'badges'), (snapshot) => {
+                window.appState.badges = [];
+                snapshot.forEach(doc => window.appState.badges.push({ docId: doc.id, ...doc.data() }));
+                window.appState.badges.sort((a,b) => a.threshold - b.threshold);
+                if(window.renderBadgesList) window.renderBadgesList();
+            });
+
+            // 3. Cargar Progreso
             onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
                 if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
                 window.updateHUD();
             });
         }
 
-        // Compresor doble (Para Hint y para Art)
+        // --- DASHBOARD ADMIN: ARTEFACTOS ---
         window.processImage = (file, callback) => {
             if(!file) { callback(null); return; }
             const reader = new FileReader();
@@ -357,7 +362,7 @@
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    const MAX = 400; // Calidad media/baja para no saturar Firestore
+                    const MAX = 300; 
                     const scale = img.width > MAX ? MAX / img.width : 1;
                     canvas.width = img.width * scale; canvas.height = img.height * scale;
                     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -374,92 +379,101 @@
             const fileHint = document.getElementById('item-hint-image').files[0];
             const fileArt = document.getElementById('item-art-image').files[0];
 
-            if (!name || !hint) return window.showAlert("Nombre y pista obligatorios.");
-            
-            document.getElementById('item-name').value = "Procesando...";
+            if (!name || !hint) return alert("Nombre y pista obligatorios.");
+            document.getElementById('item-name').value = "Guardando...";
+
+            const barcodeValue = window.appState.artifacts.length; 
 
             window.processImage(fileHint, (hintBase64) => {
                 window.processImage(fileArt, async (artBase64) => {
-                    try {
-                        const newId = Date.now().toString();
-                        await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
-                            id: newId, name: name, hint: hint, imageHint: hintBase64, imageArt: artBase64
-                        });
-                        document.getElementById('item-name').value = '';
-                        document.getElementById('item-hint').value = '';
-                        document.getElementById('item-hint-image').value = '';
-                        document.getElementById('item-art-image').value = '';
-                    } catch(e) {
-                        window.showAlert("Error subiendo imágenes. El archivo es muy pesado para Firestore.");
-                    }
+                    await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
+                        id: Date.now().toString(), name, hint, barcode: barcodeValue, imageHint: hintBase64, imageArt: artBase64
+                    });
+                    document.getElementById('item-name').value = '';
+                    document.getElementById('item-hint').value = '';
                 });
             });
         };
 
-        window.deleteArtifact = async function(docId) {
-            await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId));
-        };
+        window.deleteArtifact = async function(docId) { await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); };
 
-        window.collectArtifact = async function(id) {
-            window.appState.foundIds.add(id);
-            await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { 
-                foundList: Array.from(window.appState.foundIds) 
+        // --- DASHBOARD ADMIN: BADGES ---
+        window.saveNewBadge = async function() {
+            const name = document.getElementById('badge-name').value;
+            const icon = document.getElementById('badge-icon').value;
+            const threshold = parseInt(document.getElementById('badge-threshold').value);
+
+            if(!name || !threshold) return alert("Nombre y cantidad requeridos.");
+            
+            await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), {
+                name, icon, threshold
             });
-            
-            // Limpiar URL, apagar cámara y volver a HUD
-            window.history.replaceState({}, document.title, window.location.pathname);
-            window.stopCamera();
-            
-            if(window.appState.foundIds.size === window.appState.artifacts.length && window.appState.artifacts.length > 0) {
-                window.showScreen('screen-victory');
-            } else {
-                window.showScreen('screen-play');
-            }
+            document.getElementById('badge-name').value = '';
+            document.getElementById('badge-threshold').value = '';
         };
 
-        // El Trigger cuando el usuario escanea el QR en vida real
-        function checkURLForQRCode() {
-            const params = new URLSearchParams(window.location.search);
-            const artifactId = params.get('artifact');
+        window.deleteBadge = async function(docId) { await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges', docId)); };
+
+        // --- LÓGICA DE RECOLECCIÓN & BADGES ---
+        window.triggerFound = function(artifactId) {
+            // El marker de A-Frame detectó el código
+            if (window.appState.foundIds.has(artifactId)) return; // Ya lo tiene
+            if (window.appState.activeARId === artifactId) return; // Ya está el UI en pantalla
             
-            if (artifactId) {
-                const item = window.appState.artifacts.find(a => a.id === artifactId);
-                if (item) {
-                    if (window.appState.foundIds.has(artifactId)) {
-                        window.showAlert("Ya recolectaste este artefacto.");
-                        window.history.replaceState({}, document.title, window.location.pathname);
-                        window.showScreen('screen-play');
-                    } else {
-                        // Iniciar secuencia de Recompensa AR
-                        window.startARSequence(item);
-                    }
+            window.appState.activeARId = artifactId;
+            const item = window.appState.artifacts.find(a => a.id === artifactId);
+            
+            document.getElementById('ar-artifact-name').innerText = item.name;
+            document.getElementById('screen-ar-reward').classList.remove('hidden');
+            
+            // Configurar botón
+            document.getElementById('btn-collect').onclick = async () => {
+                document.getElementById('screen-ar-reward').classList.add('hidden');
+                window.appState.activeARId = null;
+                
+                // Guardar en BD
+                window.appState.foundIds.add(artifactId);
+                await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { 
+                    foundList: Array.from(window.appState.foundIds) 
+                });
+
+                // CHEQUEAR BADGES CUSTOM
+                const newSize = window.appState.foundIds.size;
+                const earnedBadge = window.appState.badges.find(b => b.threshold === newSize);
+                
+                if(earnedBadge) {
+                    document.getElementById('badge-name-display').innerText = earnedBadge.name;
+                    document.getElementById('badge-icon-display').className = `fa-solid ${earnedBadge.icon} text-sgx-copper text-6xl`;
+                    document.getElementById('modal-badge').classList.remove('hidden');
                 }
-            } else {
-                if(document.getElementById('screen-ar-reward').classList.contains('hidden') && 
-                   document.getElementById('screen-dash').classList.contains('hidden')) {
-                    window.showScreen('screen-home');
-                }
-            }
-        }
+
+                window.renderPlayerClues();
+            };
+        };
 
         initApp();
     </script>
 
-    <!-- UI & AR LOGIC -->
+    <!-- UI JAVASCRIPT -->
     <script>
-        let cameraStream = null;
-
-        window.hideLoading = () => document.getElementById('loading-screen').classList.add('hidden');
-        window.showAlert = (msg) => { document.getElementById('alert-message').innerText = msg; document.getElementById('alert-modal').classList.remove('hidden'); };
-        
         window.showScreen = (id) => { 
-            ['screen-home', 'screen-instructions', 'screen-dash', 'screen-play', 'screen-ar-reward', 'screen-victory'].forEach(s => document.getElementById(s).classList.add('hidden')); 
+            ['screen-home', 'screen-instructions', 'screen-dash', 'screen-play'].forEach(s => document.getElementById(s).classList.add('hidden')); 
             document.getElementById(id).classList.remove('hidden'); 
         };
 
         window.checkAdmin = () => {
             const pass = prompt("Acceso Creador SGX:");
             if(pass === "sgx2026") window.showScreen('screen-dash');
+        };
+
+        window.switchAdminTab = (tab) => {
+            document.getElementById('tab-artifacts').classList.add('hidden');
+            document.getElementById('tab-badges').classList.add('hidden');
+            document.getElementById('tab-btn-artifacts').className = "flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition";
+            document.getElementById('tab-btn-badges').className = "flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition";
+            
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tab}`).className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
         };
 
         window.updateHUD = () => {
@@ -469,51 +483,108 @@
 
         window.toggleClues = (show) => document.getElementById('modal-clues').classList[show ? 'remove' : 'add']('hidden');
 
+        // INICIAR CÁMARA AR.JS
         window.startGame = () => {
-            if(window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos configurados.");
+            if(window.appState.artifacts.length === 0) return alert("El creador aún no añade artefactos.");
             window.showScreen('screen-play');
+            
+            // Revelar la escena AR (Pedirá permisos de cámara nativamente de manera segura)
+            document.getElementById('ar-container').classList.remove('hidden');
         };
 
-        // ADMIN RENDER: Genera QR Codes
-        window.renderAdminList = () => {
-            const list = document.getElementById('admin-list');
-            document.getElementById('list-count').innerText = window.appState.artifacts.length;
-            list.innerHTML = '';
-            
-            const baseUrl = window.location.origin + window.location.pathname;
+        // CONSTRUIR A-FRAME MARKERS DINÁMICAMENTE
+        window.buildARScene = () => {
+            const scene = document.getElementById('ar-scene');
+            document.querySelectorAll('a-marker').forEach(m => m.remove());
 
             window.appState.artifacts.forEach(item => {
-                const qrUrl = `${baseUrl}?artifact=${item.id}`;
-                const div = document.createElement('div');
-                div.className = "bg-gray-900 border border-gray-700 rounded-xl p-4";
-                div.innerHTML = `
-                    <div class="flex justify-between items-start mb-3">
-                        <div>
-                            <h4 class="font-bold text-white">${item.name}</h4>
-                            <p class="text-xs text-gray-400 mt-1">${item.hint}</p>
-                        </div>
-                        <button onclick="window.deleteArtifact('${item.docId}')" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                    <div class="bg-white p-2 rounded-lg inline-block" id="qr-${item.id}"></div>
-                    <p class="text-[10px] text-gray-500 mt-2 break-all">${qrUrl}</p>
-                `;
-                list.appendChild(div);
+                const marker = document.createElement('a-marker');
+                marker.setAttribute('type', 'barcode');
+                marker.setAttribute('value', item.barcode); // 0, 1, 2...
+                marker.setAttribute('emitevents', 'true');
+
+                // Diseño 3D del Artefacto (Pop-Out)
+                let artHTML = `<a-box color="#FDCC0D" depth="0.5" height="0.5" width="0.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-box>`;
                 
-                // Generar QR Visual
-                new QRCode(document.getElementById(`qr-${item.id}`), {
-                    text: qrUrl, width: 100, height: 100, colorDark : "#0F172A", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.L
+                if(item.imageArt) {
+                    // Si subieron imagen 3D, que flote y gire frente a la cámara
+                    artHTML = `
+                        <a-image src="${item.imageArt}" width="1.5" height="1.5" position="0 0.5 0" animation="property: position; to: 0 0.7 0; dir: alternate; dur: 1500; loop: true"></a-image>
+                        <a-ring color="#32527B" radius-inner="0.8" radius-outer="0.9" rotation="-90 0 0" animation="property: rotation; to: -90 360 0; loop: true; dur: 5000;"></a-ring>
+                    `;
+                }
+
+                // El contenedor que hace POP OUT
+                marker.innerHTML = `
+                    <a-entity class="ar-wrapper" rotation="-90 0 0" scale="0 0 0" animation__pop="property: scale; to: 1 1 1; dur: 800; easing: easeOutElastic; startEvents: pop">
+                        ${artHTML}
+                    </a-entity>
+                `;
+                
+                marker.addEventListener('markerFound', () => {
+                    if (document.getElementById('screen-play').classList.contains('hidden') === false) {
+                        marker.querySelector('.ar-wrapper').emit('pop'); // Lanza animación
+                        window.triggerFound(item.id); // Llama a la UI
+                    }
                 });
+                scene.appendChild(marker);
             });
         };
 
-        // PLAYER CLUES RENDER
+        // ADMIN RENDER LISTS
+        window.renderAdminList = () => {
+            const list = document.getElementById('admin-artifacts-list');
+            list.innerHTML = '';
+            const baseUrl = window.location.href.split('?')[0]; // URL limpia para el QR
+
+            window.appState.artifacts.forEach(item => {
+                // Genera la tarjeta con el QR y el Barcode
+                const barcodeImgUrl = `https://raw.githubusercontent.com/AR-js-org/AR.js/master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${item.barcode}.png`;
+                
+                list.innerHTML += `
+                    <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-gray-400">Barcode: ${item.barcode}</p></div>
+                            <button onclick="window.deleteArtifact('${item.docId}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}')" class="w-full bg-white text-black font-bold py-2 rounded text-sm"><i class="fa-solid fa-print"></i> Ver Tarjeta AR</button>
+                    </div>
+                `;
+            });
+        };
+
+        window.renderBadgesList = () => {
+            const list = document.getElementById('admin-badges-list');
+            list.innerHTML = '';
+            window.appState.badges.forEach(badge => {
+                list.innerHTML += `
+                    <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <i class="fa-solid ${badge.icon} text-sgx-copper text-xl"></i>
+                            <div><h4 class="font-bold text-white text-sm">${badge.name}</h4><p class="text-xs text-gray-400">Al encontrar: ${badge.threshold}</p></div>
+                        </div>
+                        <button onclick="window.deleteBadge('${item.docId}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+            });
+        };
+
+        window.showPrintCard = (name, qrUrl, barcodeUrl) => {
+            document.getElementById('print-name').innerText = name;
+            document.getElementById('print-barcode-img').src = barcodeUrl;
+            document.getElementById('print-qr').innerHTML = '';
+            new QRCode(document.getElementById('print-qr'), { text: qrUrl, width: 90, height: 90 });
+            document.getElementById('modal-print-card').classList.remove('hidden');
+        };
+
+        // PLAYER RENDER CLUES
         window.renderPlayerClues = () => {
             const list = document.getElementById('player-clues-list');
             list.innerHTML = '';
-            window.appState.artifacts.forEach((item, index) => {
+            window.appState.artifacts.forEach((item) => {
                 const found = window.appState.foundIds.has(item.id);
                 list.innerHTML += `
-                    <div class="bg-gray-800 rounded-xl overflow-hidden border ${found ? 'border-sgx-yellow opacity-50' : 'border-gray-700'} relative">
+                    <div class="bg-gray-800 rounded-xl overflow-hidden border ${found ? 'border-sgx-yellow' : 'border-gray-700'} relative">
                         ${found ? '<div class="absolute inset-0 bg-sgx-dark bg-opacity-80 flex items-center justify-center z-10"><i class="fa-solid fa-check-circle text-sgx-yellow text-5xl"></i></div>' : ''}
                         ${item.imageHint ? `<img src="${item.imageHint}" class="w-full h-32 object-cover">` : `<div class="w-full h-24 bg-gray-900"></div>`}
                         <div class="p-4">
@@ -523,45 +594,6 @@
                     </div>
                 `;
             });
-        };
-
-        // AR SEQUENCE (CÁMARA + A-FRAME POP OUT)
-        window.startARSequence = (artifactData) => {
-            window.showScreen('screen-ar-reward');
-            document.getElementById('ar-artifact-name').innerText = artifactData.name;
-            
-            // Botón Recolectar
-            document.getElementById('btn-collect').onclick = () => window.collectArtifact(artifactData.id);
-
-            // Iniciar Cámara Nativa
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-            .then(stream => {
-                cameraStream = stream;
-                const video = document.getElementById('camera-feed');
-                video.srcObject = stream;
-                video.style.display = 'block';
-                
-                // Configurar A-Frame 3D
-                document.getElementById('ar-container').classList.remove('hidden');
-                const arImg = document.getElementById('ar-art-image');
-                if(artifactData.imageArt) arImg.setAttribute('src', artifactData.imageArt);
-                
-                // Trigger animación Pop Out
-                const model = document.getElementById('pop-out-model');
-                model.setAttribute('visible', 'true');
-                model.setAttribute('animation__pop', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 1500; easing: easeOutElastic;');
-            })
-            .catch(err => {
-                window.showAlert("No se pudo abrir la cámara. Aún así, has recolectado el artefacto.");
-                document.getElementById('ar-container').classList.remove('hidden');
-            });
-        };
-
-        window.stopCamera = () => {
-            if(cameraStream) cameraStream.getTracks().forEach(track => track.stop());
-            document.getElementById('camera-feed').style.display = 'none';
-            document.getElementById('ar-container').classList.add('hidden');
-            document.getElementById('pop-out-model').setAttribute('visible', 'false');
         };
     </script>
 </body>
