@@ -32,8 +32,11 @@
     </script>
 
     <style>
-        /* FONDO NEGRO PURO: Evita barras de colores extraños sin romper el AR */
-        body { margin: 0; overflow: hidden; background-color: #000; width: 100vw; height: 100vh; }
+        /* FONDO NEGRO PURO: Evita barras de colores extraños sin romper la calibración matemática de AR.js */
+        body { margin: 0; overflow: hidden; background-color: #000; width: 100vw; height: 100vh; position: fixed; inset: 0; overscroll-behavior: none; }
+        
+        /* Contenedor principal de AR (Sin forzar dimensiones en video) */
+        #ar-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
         
         /* Capa UI Base: Por encima de la cámara, sin interferir */
         #ui-layer {
@@ -44,6 +47,10 @@
         .scrollable-content {
             width: 100%; height: 100%; overflow-y: auto; pointer-events: auto; padding-bottom: 80px;
         }
+
+        /* Destrucción segura de barras de desplazamiento visuales */
+        ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+        * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
 
         .interactive { pointer-events: auto; }
         .hidden { display: none !important; }
@@ -95,7 +102,7 @@
 </head>
 <body class="font-body text-white">
 
-    <!-- AR SCENE CONTAINER (Controlado dinámicamente) -->
+    <!-- AR SCENE CONTAINER (Se inyecta dinámicamente para no secuestrar la cámara al inicio) -->
     <div id="ar-container"></div>
 
     <!-- UI LAYER -->
@@ -104,10 +111,10 @@
         <!-- PANTALLA CARGA -->
         <div id="loading-screen" class="absolute inset-0 bg-sgx-dark flex flex-col items-center justify-center z-[2000] interactive">
             <i class="fa-solid fa-satellite-dish text-sgx-yellow text-5xl mb-4 animate-ping"></i>
-            <h2 class="font-heading text-xl text-white tracking-widest uppercase">Conectando SGX...</h2>
+            <h2 class="font-heading text-xl text-white tracking-widest uppercase">Iniciando SGX...</h2>
         </div>
         
-        <!-- MODAL ALERTAS -->
+        <!-- MODAL ALERTAS SEGURO -->
         <div id="alert-modal" class="hidden absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center p-6 interactive z-[3000] backdrop-blur-sm">
             <div class="bg-gray-900 border border-sgx-yellow rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl fade-in relative overflow-hidden">
                 <i class="fa-solid fa-circle-exclamation text-sgx-yellow text-4xl mb-3"></i>
@@ -125,12 +132,12 @@
                     <i class="fa-solid fa-expand text-sgx-yellow text-4xl -rotate-45"></i>
                 </div>
                 <h1 class="font-heading text-4xl text-white mb-2 uppercase tracking-widest">SGX<br><span class="text-sgx-yellow">Scavenger</span></h1>
-                <p class="text-gray-400 mb-10 text-sm">Escanea los marcadores físicos para revelar arte 3D oculto.</p>
+                <p class="text-gray-400 mb-10 text-sm">Escanea los marcadores físicos para revelar arte 3D oculto en el evento.</p>
                 <div class="space-y-4">
-                    <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(253,204,13,0.5)] uppercase tracking-wide">
+                    <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(253,204,13,0.5)] uppercase tracking-wide hover:bg-yellow-400 transition">
                         <i class="fa-solid fa-play mr-2"></i> Jugar Ahora
                     </button>
-                    <button onclick="window.showScreen('screen-instructions')" class="w-full bg-sgx-dark text-white font-bold py-4 px-6 rounded-xl border border-gray-600 shadow-lg uppercase">
+                    <button onclick="window.showScreen('screen-instructions')" class="w-full bg-sgx-dark text-white font-bold py-4 px-6 rounded-xl border border-gray-600 shadow-lg uppercase hover:bg-gray-800 transition">
                         <i class="fa-solid fa-book mr-2"></i> Instrucciones
                     </button>
                 </div>
@@ -149,18 +156,18 @@
                 <div class="space-y-6">
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">1</div>
-                        <p class="text-sm text-gray-300">Revisa la lista de <b class="text-white">Pistas</b> en el juego.</p>
+                        <p class="text-sm text-gray-300">Revisa la lista de <b class="text-white">Pistas</b> en el menú del juego.</p>
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">2</div>
-                        <p class="text-sm text-gray-300">Encuentra los <b class="text-white">Símbolos AR</b> (cuadros negros) en el evento real.</p>
+                        <p class="text-sm text-gray-300">Encuentra los <b class="text-white">Símbolos AR</b> (cuadros negros) en el lugar físico del evento.</p>
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">3</div>
                         <p class="text-sm text-gray-300">Apunta tu cámara al símbolo y el arte 3D saltará hacia ti.</p>
                     </div>
                 </div>
-                <button onclick="window.showScreen('screen-home')" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl mt-10 uppercase shadow-lg">Entendido</button>
+                <button onclick="window.showScreen('screen-home')" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl mt-10 uppercase shadow-lg hover:bg-yellow-400 transition">Entendido</button>
             </div>
         </div>
 
@@ -170,12 +177,12 @@
                 <div class="max-w-md mx-auto fade-in pb-10">
                     <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-4 mt-2">
                         <h2 class="font-heading text-xl text-sgx-yellow"><i class="fa-solid fa-user-shield mr-2"></i> SGX Admin</h2>
-                        <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 px-3 py-2 rounded text-sm"><i class="fa-solid fa-xmark"></i></button>
+                        <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 px-3 py-2 rounded text-sm hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     
                     <div class="flex mb-6 space-x-2 bg-gray-900 p-1 rounded-lg">
-                        <button onclick="window.switchAdminTab('artifacts')" id="tab-btn-artifacts" class="flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md">Artefactos</button>
-                        <button onclick="window.switchAdminTab('badges')" id="tab-btn-badges" class="flex-1 py-2 text-sm font-bold text-gray-400 rounded-md">Insignias</button>
+                        <button onclick="window.switchAdminTab('artifacts')" id="tab-btn-artifacts" class="flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition">Artefactos</button>
+                        <button onclick="window.switchAdminTab('badges')" id="tab-btn-badges" class="flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition">Insignias</button>
                     </div>
 
                     <!-- ADMIN ARTEFACTOS -->
@@ -183,21 +190,22 @@
                         <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
                             <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Nuevo Artefacto</h3>
                             <div class="space-y-4">
-                                <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. La Botella)">
-                                <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Pista de ubicación..."></textarea>
+                                <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Nombre (Ej. La Botella Mágica)">
+                                <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Pista (Ej. Búscalo en la barra...)"></textarea>
                                 <div>
-                                    <label class="block text-[10px] text-gray-400 mb-1 uppercase">FOTO DE LA PISTA</label>
+                                    <label class="block text-[10px] text-gray-400 mb-1 uppercase">FOTO DE LA PISTA (Ubicación real)</label>
                                     <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-gray-700 file:text-white file:border-0 file:rounded file:px-2 file:py-1">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">ARTE 3D POP-OUT (Imagen o .GLB)</label>
                                     <input type="file" id="item-art-file" accept="image/*,.glb" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
+                                    <p class="text-[9px] text-red-400 mt-1 font-bold">Límite: .GLB debe pesar menos de 800KB.</p>
                                 </div>
-                                <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg transition">Guardar Artefacto</button>
+                                <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-green-500 transition">Guardar Artefacto</button>
                             </div>
                         </div>
                         <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2 flex justify-between items-center">
-                            Artefactos <span id="list-count" class="bg-sgx-blue px-2 py-1 rounded text-xs">0</span>
+                            Artefactos Activos <span id="list-count" class="bg-sgx-blue px-2 py-1 rounded text-xs">0</span>
                         </h3>
                         <div id="admin-artifacts-list" class="space-y-4"></div>
                     </div>
@@ -207,30 +215,31 @@
                         <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
                             <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Crear Insignia</h3>
                             <div class="space-y-4">
-                                <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. Explorador)">
+                                <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Nombre (Ej. Master Explorer)">
                                 <div class="flex space-x-2">
-                                    <div class="flex-1"><input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Meta de Artefactos"></div>
+                                    <div class="flex-1"><input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Req. Cantidad"></div>
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">IMAGEN DE LA INSIGNIA</label>
                                     <input type="file" id="badge-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
                                 </div>
-                                <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2 transition">Guardar Insignia</button>
+                                <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2 hover:bg-blue-600 transition shadow-lg">Guardar Insignia</button>
                             </div>
                         </div>
+                        <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2">Insignias Creadas</h3>
                         <div id="admin-badges-list" class="space-y-3"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- MODAL TARJETA IMPRIMIBLE (BARCODE FIX) -->
+        <!-- MODAL TARJETA IMPRIMIBLE -->
         <div id="modal-print-card" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-6 interactive z-[5000]">
             <div class="w-full max-w-sm bg-white border-4 border-sgx-dark p-6 text-center rounded-xl relative shadow-2xl">
                 <button onclick="document.getElementById('modal-print-card').classList.add('hidden')" class="absolute top-2 right-2 text-gray-400 hover:text-black w-8 h-8"><i class="fa-solid fa-xmark text-xl"></i></button>
                 <h2 class="font-heading text-xl text-black uppercase font-bold mb-4" id="print-name">Nombre</h2>
                 
-                <div class="flex justify-between items-center mb-4">
+                <div class="flex justify-between items-center mb-4 gap-4">
                     <div class="w-1/2 flex flex-col items-center justify-center">
                         <p class="text-[10px] text-gray-500 font-bold mb-1 uppercase">1. Escanea URL</p>
                         <div id="print-qr" class="border-2 border-gray-300 p-1 rounded bg-white"></div>
@@ -238,7 +247,6 @@
                     
                     <div class="w-1/2 flex flex-col items-center justify-center">
                         <p class="text-[10px] text-sgx-blue font-bold mb-1 uppercase">2. Apunta Cámara</p>
-                        <!-- 🔥 URL SEGURA GITHUB CONTENT -->
                         <img id="print-barcode-img" src="" class="w-24 h-24 border-2 border-black object-contain bg-white">
                         <p class="text-[9px] text-gray-500 font-bold mt-1 uppercase">ID: <span id="print-barcode-id">0</span></p>
                     </div>
@@ -262,7 +270,7 @@
                 <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-house"></i></button>
             </div>
             <div class="flex justify-center mb-6 slide-up">
-                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide">
+                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide hover:bg-blue-600 transition">
                     <i class="fa-solid fa-map-location-dot mr-3"></i> Ver Pistas
                 </button>
             </div>
@@ -286,7 +294,7 @@
             <div class="w-full max-w-sm mx-4 bg-gray-900 bg-opacity-90 backdrop-blur-md border-2 border-sgx-yellow p-6 rounded-3xl text-center slide-up shadow-[0_0_40px_rgba(253,204,13,0.5)]">
                 <h3 class="font-heading text-xl text-sgx-yellow uppercase mb-1">¡Artefacto Revelado!</h3>
                 <p class="text-white font-bold mb-4" id="ar-artifact-name">Nombre</p>
-                <button id="btn-collect" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl uppercase tracking-widest">
+                <button id="btn-collect" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl uppercase tracking-widest hover:bg-yellow-400">
                     <i class="fa-solid fa-download mr-2"></i> Recolectar
                 </button>
             </div>
@@ -321,7 +329,7 @@
             measurementId: "G-QV8KZR2V97"
         };
 
-        const appKey = 'sgx-hunt-v14'; 
+        const appKey = 'sgx-hunt-v17'; 
         
         window.appState = { db: null, auth: null, userId: null, artifacts: [], badges: [], foundIds: new Set(), activeARId: null };
 
@@ -338,13 +346,14 @@
             } catch (e) {
                 const loader = document.getElementById('loading-screen');
                 if(loader) loader.classList.add('hidden');
-                window.showAlert("Error iniciando conexión.");
+                window.showAlert("Error conectando a Firebase.");
             }
         }
 
         function loadData() {
             const db = window.appState.db;
             
+            // Cargar Artefactos (Blindado contra nulos)
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'items'), (snapshot) => {
                 window.appState.artifacts = [];
                 snapshot.forEach(doc => window.appState.artifacts.push({ docId: doc.id, ...doc.data() }));
@@ -362,6 +371,7 @@
                 }
             });
 
+            // Cargar Badges
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'badges'), (snapshot) => {
                 window.appState.badges = [];
                 snapshot.forEach(doc => window.appState.badges.push({ docId: doc.id, ...doc.data() }));
@@ -369,17 +379,19 @@
                 if(window.renderBadgesList) window.renderBadgesList();
             });
 
+            // Cargar Progreso
             onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
                 if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
                 if(window.updateHUD) window.updateHUD();
             });
         }
 
+        // COMPRESOR LOCAL
         window.processFileAsBase64 = (file, isGLB, callback) => {
             if (!file) return callback(null);
             if (isGLB) {
                 if (file.size > 900000) {
-                    window.showAlert("El archivo GLB pesa más de 900KB. Redúcelo en Blender para que Firestore lo acepte.");
+                    window.showAlert("El archivo GLB pesa más de 900KB y Firebase lo bloqueará. Redúcelo en Blender o usa imagen.");
                     return callback(null);
                 }
                 const reader = new FileReader();
@@ -404,13 +416,12 @@
         };
 
         window.saveNewArtifact = async function() {
-            const name = document.getElementById('item-name').value;
-            const hint = document.getElementById('item-hint').value;
-            const fileHint = document.getElementById('item-hint-image').files[0];
-            const fileArt = document.getElementById('item-art-file').files[0];
+            const nameEl = document.getElementById('item-name');
+            const hintEl = document.getElementById('item-hint');
             const btnSave = document.getElementById('btn-save-artifact');
 
-            if (!name || !hint) return window.showAlert("Nombre y pista obligatorios.");
+            if (!nameEl || !hintEl || !nameEl.value || !hintEl.value) return window.showAlert("Nombre y pista obligatorios.");
+            
             btnSave.innerText = "Empaquetando..."; btnSave.disabled = true;
 
             try {
@@ -418,6 +429,8 @@
                 let nextBarcode = 0;
                 while(usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
 
+                const fileHint = document.getElementById('item-hint-image').files[0];
+                const fileArt = document.getElementById('item-art-file').files[0];
                 let isGLB = false;
                 if(fileArt && fileArt.name.toLowerCase().endsWith('.glb')) isGLB = true;
 
@@ -428,9 +441,9 @@
                         }
                         try {
                             await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
-                                id: Date.now().toString(), name, hint, barcode: nextBarcode, imageHint: hintBase64, imageArt: artBase64, isGLB: isGLB
+                                id: Date.now().toString(), name: nameEl.value, hint: hintEl.value, barcode: nextBarcode, imageHint: hintBase64, imageArt: artBase64, isGLB: isGLB
                             });
-                            document.getElementById('item-name').value = ''; document.getElementById('item-hint').value = '';
+                            nameEl.value = ''; hintEl.value = '';
                             document.getElementById('item-hint-image').value = ''; document.getElementById('item-art-file').value = '';
                         } catch (err) { window.showAlert("Archivo muy pesado para el plan gratuito."); } 
                         finally { btnSave.innerText = "Guardar Artefacto"; btnSave.disabled = false; }
@@ -442,18 +455,19 @@
         window.deleteArtifact = async function(docId) { if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); };
 
         window.saveNewBadge = async function() {
-            const name = document.getElementById('badge-name').value;
-            const threshold = parseInt(document.getElementById('badge-threshold').value);
-            const fileBadge = document.getElementById('badge-image').files[0];
+            const nameEl = document.getElementById('badge-name');
+            const threshEl = document.getElementById('badge-threshold');
             const btnSave = document.getElementById('btn-save-badge');
 
-            if(!name || !threshold || !fileBadge) return window.showAlert("Nombre, cantidad e imagen requeridos.");
+            if(!nameEl || !threshEl || !nameEl.value || !threshEl.value) return window.showAlert("Nombre y cantidad requeridos.");
             btnSave.innerText = "Guardando..."; btnSave.disabled = true;
+
+            const fileBadge = document.getElementById('badge-image').files[0];
 
             window.processFileAsBase64(fileBadge, false, async (imgBase64) => {
                 if(window.appState.db && imgBase64) {
-                    await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { name, imageUrl: imgBase64, threshold });
-                    document.getElementById('badge-name').value = ''; document.getElementById('badge-threshold').value = ''; document.getElementById('badge-image').value = '';
+                    await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { name: nameEl.value, imageUrl: imgBase64, threshold: parseInt(threshEl.value) });
+                    nameEl.value = ''; threshEl.value = ''; document.getElementById('badge-image').value = '';
                 }
                 btnSave.innerText = "Guardar Insignia"; btnSave.disabled = false;
             });
@@ -501,7 +515,7 @@
         initApp();
     </script>
 
-    <!-- UI GENERAL & AR INJECTOR -->
+    <!-- UI GENERAL, AR INJECTOR & BARCODE FIX -->
     <script>
         window.showAlert = (msg) => { const a = document.getElementById('alert-message'); if(a) { a.innerText = msg; document.getElementById('alert-modal').classList.remove('hidden');} else alert(msg); };
         window.showScreen = (id) => { 
@@ -561,8 +575,8 @@
             const baseUrl = window.location.href.split('?')[0]; 
             window.appState.artifacts.forEach(item => {
                 const codeNumber = item.barcode !== undefined ? item.barcode : 0; 
-                // 🔥 URL SEGURA (RAW GITHUB USER CONTENT)
-                const barcodeImgUrl = `https://raw.githubusercontent.com/AR-js-org/AR.js/master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
+                // ✨ FIX MAESTRO: CDN 100% SEGURO DE JSDELIVR ✨
+                const barcodeImgUrl = `https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.2/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
                 
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
@@ -600,11 +614,7 @@
         };
 
         window.showPrintCard = (name, qrUrl, barcodeUrl, codeNumber) => {
-            const nameEl = document.getElementById('print-name');
-            const imgEl = document.getElementById('print-barcode-img');
-            const idEl = document.getElementById('print-barcode-id');
-            const qrEl = document.getElementById('print-qr');
-            const modal = document.getElementById('modal-print-card');
+            const nameEl = document.getElementById('print-name'), imgEl = document.getElementById('print-barcode-img'), idEl = document.getElementById('print-barcode-id'), qrEl = document.getElementById('print-qr'), modal = document.getElementById('modal-print-card');
             
             if (nameEl && imgEl && idEl && qrEl && modal) {
                 nameEl.innerText = name; 
