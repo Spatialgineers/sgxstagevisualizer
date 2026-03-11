@@ -14,18 +14,26 @@
             --sgx-light: #F8FAFC;
         }
         body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
             background-color: var(--sgx-dark); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: var(--sgx-light); -webkit-user-select: none; user-select: none;
         }
-        /* Fix for iOS Camera */
-        video { width: 100% !important; height: 100% !important; object-fit: cover !important; position: absolute !important; top: 0 !important; left: 0 !important; z-index: -1; }
-        .a-canvas { width: 100% !important; height: 100% !important; }
+        
+        /* FIX DEFINITIVO PARA iOS Y AR.js */
+        body > video, video#arjs-video { 
+            width: 100vw !important; height: 100vh !important; 
+            object-fit: cover !important; margin: 0 !important; padding: 0 !important;
+            position: fixed !important; top: 0 !important; left: 0 !important; z-index: -2 !important; 
+        }
+        .a-canvas { 
+            width: 100vw !important; height: 100vh !important; 
+            position: fixed !important; top: 0 !important; left: 0 !important; z-index: -1 !important; 
+        }
         
         /* UI Layers */
-        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; background: var(--sgx-dark); transition: opacity 0.3s; }
+        .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; background: var(--sgx-dark); transition: opacity 0.3s; overflow-y: auto; }
         .hidden { display: none !important; opacity: 0; pointer-events: none; }
-        .overlay { background: transparent; pointer-events: none; z-index: 20; justify-content: space-between; padding: 20px; box-sizing: border-box; }
+        .overlay { background: transparent; pointer-events: none; z-index: 20; justify-content: space-between; padding: 20px; box-sizing: border-box; overflow: hidden; }
         .pointer-events-auto { pointer-events: auto; }
 
         /* Components */
@@ -37,7 +45,7 @@
         .btn-close { position: absolute; top: 20px; right: 20px; padding: 10px 15px; font-size: 14px; }
         
         /* Admin Dashboard */
-        .admin-panel { background: var(--sgx-light); color: var(--sgx-dark); width: 90%; max-width: 500px; height: 85%; border-radius: 12px; padding: 20px; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .admin-panel { background: var(--sgx-light); color: var(--sgx-dark); width: 90%; max-width: 500px; height: 85%; border-radius: 12px; padding: 20px; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative; }
         .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
         .form-group label { font-weight: bold; margin-bottom: 5px; color: var(--sgx-blue); }
         .form-group input, .form-group textarea, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; }
@@ -64,7 +72,6 @@
                 img.src = this.data.src;
                 img.onload = () => {
                     const ratio = img.width / img.height;
-                    // Standardize height to 1 unit, adjust width based on ratio
                     this.el.setAttribute('geometry', `primitive: plane; width: ${ratio}; height: 1`);
                 };
             }
@@ -75,7 +82,6 @@
                 this.el.setAttribute('scale', '0 0 0');
             },
             play: function() {
-                // Elastic animation on marker found
                 this.el.setAttribute('animation', {
                     property: 'scale',
                     to: '1.5 1.5 1.5',
@@ -102,12 +108,10 @@
 </head>
 <body>
 
-    <div id="ar-container" class="hidden" style="position: absolute; top:0; left:0; width: 100%; height: 100%; z-index: 1;">
-        <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" renderer="logarithmicDepthBuffer: true;" vr-mode-ui="enabled: false">
-            <a-entity id="dynamic-markers"></a-entity>
-            <a-entity camera></a-entity>
-        </a-scene>
-    </div>
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" renderer="logarithmicDepthBuffer: true;" vr-mode-ui="enabled: false">
+        <a-entity id="dynamic-markers"></a-entity>
+        <a-entity camera></a-entity>
+    </a-scene>
 
     <div id="screen-loading" class="screen">
         <h1>SGX AR Hunt</h1>
@@ -147,22 +151,23 @@
         <button class="btn btn-blue btn-close" onclick="window.appLogic.hideProfile()">X</button>
         <h2>Mi Progreso</h2>
         <p>Artefactos encontrados: <span id="profile-count">0</span> / <span id="profile-total">0</span></p>
-        <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px;">
+        <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; padding: 20px;">
             </div>
     </div>
 
-    <div id="screen-admin" class="screen hidden" style="background: rgba(15, 23, 42, 0.9);">
-        <button class="btn btn-blue btn-close" onclick="window.appLogic.showMenu()">X</button>
+    <div id="screen-admin" class="screen hidden" style="background: rgba(15, 23, 42, 0.95);">
         <div class="admin-panel pointer-events-auto">
-            <h2 style="color: var(--sgx-dark);">Panel de Administración SGX</h2>
+            <button class="btn btn-blue btn-close" onclick="window.appLogic.showMenu()" style="top: 10px; right: 10px;">X</button>
+            <h2 style="color: var(--sgx-dark); margin-top:0;">Panel Admin SGX</h2>
             
             <div style="display:flex; border-bottom: 2px solid var(--sgx-blue); margin-bottom: 15px;">
-                <button class="btn btn-blue" style="flex:1; margin:0;" onclick="window.appLogic.switchAdminTab('artifacts')">Artefactos</button>
-                <button class="btn" style="flex:1; margin:0; background: #E2E8F0;" onclick="window.appLogic.switchAdminTab('badges')">Badges</button>
+                <button id="btn-tab-artifacts" class="btn btn-blue" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px;" onclick="window.appLogic.switchAdminTab('artifacts')">Crear</button>
+                <button id="btn-tab-cards" class="btn" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px; background: #E2E8F0; color: var(--sgx-dark);" onclick="window.appLogic.switchAdminTab('cards')">Tarjetas</button>
+                <button id="btn-tab-badges" class="btn" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px; background: #E2E8F0; color: var(--sgx-dark);" onclick="window.appLogic.switchAdminTab('badges')">Badges</button>
             </div>
 
             <div id="tab-artifacts">
-                <h3>Crear Artefacto</h3>
+                <h3 style="color: var(--sgx-blue);">Crear Artefacto</h3>
                 <div class="form-group">
                     <label>Nombre:</label>
                     <input type="text" id="art-name" placeholder="Ej. Reliquia Taína">
@@ -172,49 +177,39 @@
                     <textarea id="art-clue" rows="2" placeholder="Ubicación..."></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Foto de Pista (JPG/PNG - se comprimirá):</label>
+                    <label>Foto de Pista:</label>
                     <input type="file" id="art-photo" accept="image/*">
                 </div>
                 <div class="form-group">
-                    <label>Arte Pop-out (Imagen o GLB máx 850KB):</label>
+                    <label>Arte Pop-out (GLB < 850KB o Img):</label>
                     <select id="art-type" style="margin-bottom: 5px;">
                         <option value="image">Imagen (JPG/PNG)</option>
                         <option value="glb">Modelo 3D (.glb)</option>
                     </select>
                     <input type="file" id="art-file" accept="image/*,.glb">
                 </div>
-                <button class="btn" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveArtifact()">Guardar y Generar Tarjeta</button>
-                
-                <div id="card-preview" class="card-preview hidden">
-                    <h4 style="color: var(--sgx-blue); margin-top:0;">Tarjeta Generada</h4>
-                    <p id="card-art-name" style="color: #333; font-weight:bold;"></p>
-                    <p>ID Barcode: <strong id="card-barcode-id"></strong></p>
-                    <div style="display:flex; justify-content: space-around; align-items:center;">
-                        <div>
-                            <p style="font-size: 12px; color: #666;">QR App URL</p>
-                            <img id="card-qr" class="qr-img" src="" alt="QR">
-                        </div>
-                        <div>
-                            <p style="font-size: 12px; color: #666;">AR Barcode</p>
-                            <canvas id="card-barcode-canvas" class="qr-img" width="150" height="150"></canvas>
-                        </div>
+                <button class="btn" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveArtifact()">Guardar Artefacto</button>
+            </div>
+
+            <div id="tab-cards" class="hidden">
+                <h3 style="color: var(--sgx-blue);">Tarjetas Generadas</h3>
+                <p style="font-size: 12px; color: #666; text-align: left; margin-bottom: 15px;">Imprime estas tarjetas para tu evento. Cada una tiene su QR (link de la app) y su Barcode AR único.</p>
+                <div id="admin-cards-list" style="display:flex; flex-direction:column; gap:20px;">
                     </div>
-                    <p style="font-size:10px; color:gray;">Imprime esta tarjeta. Los usuarios escanean el QR para abrir la app, y apuntan la cámara al Barcode para ver el Pop-out.</p>
-                </div>
             </div>
 
             <div id="tab-badges" class="hidden">
-                <h3>Crear Badge (Insignia)</h3>
+                <h3 style="color: var(--sgx-blue);">Crear Badge (Insignia)</h3>
                 <div class="form-group">
                     <label>Nombre del Badge:</label>
                     <input type="text" id="badge-name" placeholder="Ej. Explorador Novato">
                 </div>
                 <div class="form-group">
-                    <label>Artefactos requeridos para desbloquear:</label>
+                    <label>Artefactos para desbloquear:</label>
                     <input type="number" id="badge-req" min="1" value="1">
                 </div>
                 <div class="form-group">
-                    <label>Imagen del Badge (JPG/PNG):</label>
+                    <label>Imagen del Badge:</label>
                     <input type="file" id="badge-img" accept="image/*">
                 </div>
                 <button class="btn" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveBadge()">Guardar Badge</button>
@@ -224,7 +219,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
         const firebaseConfig = {
@@ -247,7 +242,7 @@
         let collectedIds = [];
         let currentDetectedMarker = null;
 
-        // Utility: Image Compression (Canvas)
+        // Utils
         function compressImage(file, quality = 0.6, maxWidth = 400) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -259,7 +254,7 @@
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
                         let scaleSize = maxWidth / img.width;
-                        if(scaleSize > 1) scaleSize = 1; // Don't upscale
+                        if(scaleSize > 1) scaleSize = 1;
                         canvas.width = img.width * scaleSize;
                         canvas.height = img.height * scaleSize;
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -269,7 +264,6 @@
             });
         }
 
-        // Utility: Read GLB to Base64 with Size Limit
         function readGLB(file) {
             return new Promise((resolve, reject) => {
                 if (file.size > 850 * 1024) {
@@ -284,33 +278,26 @@
             });
         }
 
-        // Utility: Simple 3x3 Matrix Drawer for visual representation on Card
+        // Logic for generating AR.js 3x3 matrix visual representations
         function drawMatrixBarcode(canvasId, id) {
             const canvas = document.getElementById(canvasId);
+            if(!canvas) return;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, 0, 150, 150);
-            ctx.fillStyle = "black";
-            // Draw thick border
-            ctx.fillRect(10, 10, 130, 130);
-            ctx.fillStyle = "white";
-            ctx.fillRect(30, 30, 90, 90);
+            ctx.fillStyle = "white"; ctx.fillRect(0, 0, 150, 150);
+            ctx.fillStyle = "black"; ctx.fillRect(10, 10, 130, 130);
+            ctx.fillStyle = "white"; ctx.fillRect(30, 30, 90, 90);
             
-            // Draw 3x3 grid based on binary of ID (simplified representation)
             ctx.fillStyle = "black";
             const bin = id.toString(2).padStart(9, '0');
             let idx = 0;
             for(let y=0; y<3; y++){
                 for(let x=0; x<3; x++){
-                    if(bin[idx] === '1') {
-                        ctx.fillRect(30 + (x*30), 30 + (y*30), 30, 30);
-                    }
+                    if(bin[idx] === '1') ctx.fillRect(30 + (x*30), 30 + (y*30), 30, 30);
                     idx++;
                 }
             }
         }
 
-        // Main App Logic mapped to window for HTML event handlers
         window.appLogic = {
             init: async function() {
                 signInAnonymously(auth);
@@ -329,13 +316,13 @@
                 const artSnapshot = await getDocs(collection(db, "artifacts"));
                 artifactsData = [];
                 const markersContainer = document.getElementById('dynamic-markers');
-                markersContainer.innerHTML = ''; // Clear
+                markersContainer.innerHTML = '';
 
                 artSnapshot.forEach(doc => {
                     const data = doc.data();
                     artifactsData.push({ id: doc.id, ...data });
                     
-                    // Inject A-Frame AR markers
+                    // Inyectar en A-Frame
                     const markerEl = document.createElement('a-marker');
                     markerEl.setAttribute('type', 'barcode');
                     markerEl.setAttribute('value', data.barcodeId);
@@ -344,11 +331,9 @@
                     const artEl = document.createElement(data.type === 'glb' ? 'a-gltf-model' : 'a-image');
                     artEl.setAttribute('src', data.artBase64);
                     artEl.setAttribute('pop-out', '');
-                    artEl.setAttribute('rotation', '-90 0 0'); // Lay flat on marker
+                    artEl.setAttribute('rotation', '-90 0 0');
 
-                    if (data.type === 'image') {
-                        artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
-                    }
+                    if (data.type === 'image') artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
 
                     markerEl.appendChild(artEl);
                     markersContainer.appendChild(markerEl);
@@ -359,15 +344,13 @@
                 badgesData = [];
                 badgeSnapshot.forEach(doc => badgesData.push(doc.data()));
                 badgesData.sort((a,b) => a.required - b.required);
+
+                this.renderAdminCards(); // Actualiza la lista del admin
             },
 
             loadUserData: function() {
                 onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
-                    if (docSnap.exists()) {
-                        collectedIds = docSnap.data().collected || [];
-                    } else {
-                        collectedIds = [];
-                    }
+                    collectedIds = docSnap.exists() ? docSnap.data().collected || [] : [];
                     document.getElementById('hud-count').innerText = collectedIds.length;
                     document.getElementById('profile-count').innerText = collectedIds.length;
                     document.getElementById('profile-total').innerText = artifactsData.length;
@@ -382,14 +365,42 @@
                     const unlocked = collectedIds.length >= badge.required;
                     container.innerHTML += `
                         <div style="text-align:center; opacity: ${unlocked ? '1' : '0.4'}; filter: ${unlocked ? 'none' : 'grayscale(100%)'};">
-                            <img src="${badge.imgBase64}" style="width:80px; height:80px; border-radius:50%; border: 3px solid var(--sgx-yellow);">
-                            <p style="font-size:12px; margin-top:5px;">${badge.name}<br>(${badge.required} arts)</p>
+                            <img src="${badge.imgBase64}" style="width:80px; height:80px; border-radius:50%; border: 3px solid var(--sgx-yellow); object-fit: cover;">
+                            <p style="font-size:12px; margin-top:5px; color: var(--sgx-light);">${badge.name}<br>(${badge.required} arts)</p>
                         </div>
                     `;
                 });
             },
 
-            // Navigation
+            renderAdminCards: function() {
+                const container = document.getElementById('admin-cards-list');
+                container.innerHTML = '';
+                const appUrl = window.location.href.split('?')[0]; // Clean URL
+                
+                artifactsData.forEach(art => {
+                    container.innerHTML += `
+                        <div class="card-preview">
+                            <h4 style="color: var(--sgx-blue); margin:0 0 10px 0;">${art.name}</h4>
+                            <p style="margin: 0 0 10px 0;">ID Barcode: <strong>${art.barcodeId}</strong></p>
+                            <div style="display:flex; justify-content: space-around; align-items:center;">
+                                <div>
+                                    <p style="font-size: 12px; color: #666; margin: 0;">QR (Link App)</p>
+                                    <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(appUrl)}" alt="QR">
+                                </div>
+                                <div>
+                                    <p style="font-size: 12px; color: #666; margin: 0;">Barcode AR (3x3)</p>
+                                    <canvas id="list-barcode-${art.barcodeId}" class="qr-img" width="150" height="150"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                // Dibujar los canvas despues de inyectar el HTML
+                artifactsData.forEach(art => drawMatrixBarcode(`list-barcode-${art.barcodeId}`, art.barcodeId));
+            },
+
+            // Nav
             switchScreen: function(hideId, showId) {
                 document.getElementById(hideId).classList.add('hidden');
                 document.getElementById(showId).classList.remove('hidden');
@@ -397,32 +408,33 @@
             showMenu: function() {
                 document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
                 document.getElementById('screen-menu').classList.remove('hidden');
-                document.getElementById('ar-container').classList.add('hidden');
             },
             startGame: function() {
                 this.switchScreen('screen-menu', 'screen-hud');
-                document.getElementById('ar-container').classList.remove('hidden');
             },
             showInstructions: function() { this.switchScreen('screen-menu', 'screen-instructions'); },
             showProfile: function() { document.getElementById('screen-profile').classList.remove('hidden'); },
             hideProfile: function() { document.getElementById('screen-profile').classList.add('hidden'); },
             
+            // Admin Auth & Tabs
             promptAdmin: function() {
                 const pwd = prompt("Clave de Administrador:");
                 if (pwd === "sgx2026") this.switchScreen('screen-menu', 'screen-admin');
                 else if (pwd !== null) alert("Clave incorrecta.");
             },
             switchAdminTab: function(tab) {
-                if(tab === 'artifacts') {
-                    document.getElementById('tab-artifacts').classList.remove('hidden');
-                    document.getElementById('tab-badges').classList.add('hidden');
-                } else {
-                    document.getElementById('tab-artifacts').classList.add('hidden');
-                    document.getElementById('tab-badges').classList.remove('hidden');
-                }
+                const tabs = ['artifacts', 'cards', 'badges'];
+                tabs.forEach(t => {
+                    document.getElementById(`tab-${t}`).classList.add('hidden');
+                    document.getElementById(`btn-tab-${t}`).style.background = '#E2E8F0';
+                    document.getElementById(`btn-tab-${t}`).style.color = 'var(--sgx-dark)';
+                });
+                document.getElementById(`tab-${tab}`).classList.remove('hidden');
+                document.getElementById(`btn-tab-${tab}`).style.background = 'var(--sgx-blue)';
+                document.getElementById(`btn-tab-${tab}`).style.color = 'var(--sgx-light)';
             },
 
-            // AR Logic
+            // AR Collect
             onMarkerFound: function(artifactId) {
                 currentDetectedMarker = artifactId;
                 if (!collectedIds.includes(artifactId)) {
@@ -441,7 +453,7 @@
                 alert("¡Artefacto Recolectado!");
             },
 
-            // Admin Logic
+            // Admin Save
             saveArtifact: async function() {
                 const name = document.getElementById('art-name').value;
                 const clue = document.getElementById('art-clue').value;
@@ -454,33 +466,27 @@
                 try {
                     const photoBase64 = await compressImage(photoFile);
                     let artBase64 = "";
-                    if (type === 'image') artBase64 = await compressImage(artFile, 0.8, 800); // Higher res for AR
+                    if (type === 'image') artBase64 = await compressImage(artFile, 0.8, 800);
                     else artBase64 = await readGLB(artFile);
 
-                    // Next Barcode ID
-                    const barcodeId = artifactsData.length;
+                    const barcodeId = artifactsData.length; // Auto-asignar siguiente ID
 
-                    const docRef = await addDoc(collection(db, "artifacts"), {
+                    await addDoc(collection(db, "artifacts"), {
                         name, clue, type, barcodeId, photoBase64, artBase64
                     });
 
                     alert("Artefacto guardado exitosamente.");
                     
-                    // Generate Card
-                    document.getElementById('card-preview').classList.remove('hidden');
-                    document.getElementById('card-art-name').innerText = name;
-                    document.getElementById('card-barcode-id').innerText = barcodeId;
-                    
-                    const appUrl = window.location.href;
-                    document.getElementById('card-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(appUrl)}`;
-                    
-                    drawMatrixBarcode('card-barcode-canvas', barcodeId);
+                    // Limpiar campos
+                    document.getElementById('art-name').value = '';
+                    document.getElementById('art-clue').value = '';
+                    document.getElementById('art-photo').value = '';
+                    document.getElementById('art-file').value = '';
 
-                    // Refresh AR scene data
-                    this.loadGameData();
+                    await this.loadGameData(); // Recarga la escena y la lista de tarjetas
+                    this.switchAdminTab('cards'); // Te lleva a ver la tarjeta generada
 
                 } catch (e) {
-                    console.error(e);
                     if(e !== "File too large") alert("Error al guardar: " + e.message);
                 }
             },
@@ -496,16 +502,18 @@
                     const imgBase64 = await compressImage(imgFile, 0.7, 200);
                     await addDoc(collection(db, "badges"), { name, required: req, imgBase64 });
                     alert("Badge guardado.");
-                    this.loadGameData(); // Refresh badges
+                    
+                    document.getElementById('badge-name').value = '';
+                    document.getElementById('badge-img').value = '';
+                    
+                    this.loadGameData();
                 } catch(e) {
                     alert("Error: " + e.message);
                 }
             }
         };
 
-        // Boot
         window.addEventListener('load', () => window.appLogic.init());
-
     </script>
 </body>
 </html>
