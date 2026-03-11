@@ -14,29 +14,47 @@
             --sgx-light: #F8FAFC;
         }
         body, html {
-            margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
             background-color: var(--sgx-dark); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: var(--sgx-light); -webkit-user-select: none; user-select: none;
         }
         
-        /* UI Layers - Z-index alto para tapar la cámara mientras no se juega */
-        .screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; background: var(--sgx-dark); transition: opacity 0.3s; overflow-y: auto; }
-        .hidden { display: none !important; opacity: 0; pointer-events: none; }
+        /* EL SECRETO PARA IOS: 
+           No forzamos el video ni el canvas con CSS. AR.js se encarga.
+           Usamos Visibility y Opacity para la UI en vez de display:none
+        */
+        .ui-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: var(--sgx-dark); z-index: 1000;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            overflow-y: auto; overflow-x: hidden;
+        }
         
-        /* HUD transparente */
-        .overlay { background: transparent !important; pointer-events: none; justify-content: space-between; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        /* Ocultar sin romper el layout (Clave para que no se rompa AR.js) */
+        .ui-hidden {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+
+        /* Capa transparente para el HUD mientras se juega */
+        .ui-transparent {
+            background: transparent !important;
+            pointer-events: none; /* Deja que los toques pasen a la escena 3D si es necesario */
+        }
         .pointer-events-auto { pointer-events: auto; }
 
-        /* Componentes */
+        /* Estilos Generales */
         h1, h2, h3 { color: var(--sgx-yellow); text-align: center; margin-bottom: 10px; }
-        p { text-align: center; max-width: 80%; line-height: 1.5; }
+        p { text-align: center; max-width: 85%; line-height: 1.5; margin-bottom: 20px;}
         .btn { background-color: var(--sgx-yellow); color: var(--sgx-dark); border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 10px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.1s; }
         .btn:active { transform: scale(0.95); }
         .btn-blue { background-color: var(--sgx-blue); color: var(--sgx-light); }
         .btn-close { position: absolute; top: 20px; right: 20px; padding: 10px 15px; font-size: 14px; }
         
-        /* Admin Dashboard */
-        .admin-panel { background: var(--sgx-light); color: var(--sgx-dark); width: 90%; max-width: 500px; max-height: 85vh; border-radius: 12px; padding: 20px; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative; }
+        /* Panel de Administración */
+        .admin-panel { background: var(--sgx-light); color: var(--sgx-dark); width: 90%; max-width: 500px; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative; margin: auto; }
         .form-group { display: flex; flex-direction: column; margin-bottom: 15px; text-align: left; }
         .form-group label { font-weight: bold; margin-bottom: 5px; color: var(--sgx-blue); }
         .form-group input, .form-group textarea, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; }
@@ -44,18 +62,19 @@
         .qr-img { width: 100px; height: 100px; margin: 10px; }
         
         /* AR HUD */
+        .hud-container { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; box-sizing: border-box; }
         .hud-top { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: auto; }
-        .hud-bottom { width: 100%; display: flex; justify-content: center; margin-bottom: 20px; pointer-events: auto; }
-        .badge-count { background: var(--sgx-blue); padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 18px; border: 2px solid var(--sgx-yellow); cursor: pointer; }
+        .hud-bottom { width: 100%; display: flex; justify-content: center; padding-bottom: 40px; pointer-events: auto; }
+        .badge-count { background: var(--sgx-blue); padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 18px; border: 2px solid var(--sgx-yellow); cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
         #collect-btn { font-size: 22px; padding: 20px 40px; background-color: #10B981; color: white; animation: pulse 1.5s infinite; }
         
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
 
-        /* Icono de candado Admin */
-        #admin-lock { position: absolute; bottom: 20px; right: 20px; font-size: 24px; opacity: 0.3; cursor: pointer; }
+        #admin-lock { position: absolute; bottom: 20px; right: 20px; font-size: 24px; opacity: 0.3; cursor: pointer; z-index: 2000; }
     </style>
 
     <script>
+        // Componentes A-Frame (Proporción y Animación)
         AFRAME.registerComponent('proportional-image', {
             schema: { src: { type: 'string' } },
             init: function () {
@@ -63,7 +82,6 @@
                 img.src = this.data.src;
                 img.onload = () => {
                     const ratio = img.width / img.height;
-                    // Mantener altura en 1, ajustar ancho según ratio real
                     this.el.setAttribute('geometry', `primitive: plane; width: ${ratio}; height: 1`);
                 };
             }
@@ -98,58 +116,64 @@
         });
     </script>
 </head>
-<body style="margin: 0; overflow: hidden;">
+<body>
 
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" renderer="logarithmicDepthBuffer: true;" vr-mode-ui="enabled: false" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1;">
+    <a-scene 
+        embedded 
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" 
+        renderer="logarithmicDepthBuffer: true;" 
+        vr-mode-ui="enabled: false">
         <a-entity id="dynamic-markers"></a-entity>
         <a-entity camera></a-entity>
     </a-scene>
 
-    <div id="screen-loading" class="screen">
+    <div id="screen-loading" class="ui-layer">
         <h1>SGX AR Hunt</h1>
-        <p>Cargando experiencia inmersiva...</p>
+        <p>Cargando base de datos y AR...</p>
     </div>
 
-    <div id="screen-menu" class="screen hidden">
+    <div id="screen-menu" class="ui-layer ui-hidden">
         <h1>Búsqueda de Tesoros</h1>
         <p>Encuentra los artefactos escondidos escaneando los códigos AR.</p>
-        <button class="btn" onclick="window.appLogic.startGame()">Jugar</button>
+        <button class="btn" onclick="window.appLogic.startGame()">Jugar Ahora</button>
         <button class="btn btn-blue" onclick="window.appLogic.showInstructions()">Instrucciones</button>
         <div id="admin-lock" onclick="window.appLogic.promptAdmin()">🔒</div>
     </div>
 
-    <div id="screen-instructions" class="screen hidden">
+    <div id="screen-instructions" class="ui-layer ui-hidden">
         <h2>Instrucciones</h2>
-        <p>1. Busca las tarjetas con el logo de SGX escondidas en el evento.</p>
-        <p>2. Apunta la cámara hacia el código de barras (Matriz 3x3).</p>
-        <p>3. Descubre el arte oculto y presiona "Recolectar".</p>
+        <p>1. Busca las tarjetas con el logo de SGX.</p>
+        <p>2. Apunta tu cámara hacia el Barcode negro (Matriz).</p>
+        <p>3. El arte saltará en tu pantalla. Presiona "Recolectar".</p>
         <p>4. Completa la colección para ganar Insignias.</p>
         <button class="btn btn-blue" onclick="window.appLogic.showMenu()">Volver</button>
     </div>
 
-    <div id="screen-hud" class="screen overlay hidden">
-        <div class="hud-top">
-            <button class="btn btn-blue" style="padding: 10px; font-size: 14px;" onclick="window.appLogic.showMenu()">Salir</button>
-            <div class="badge-count pointer-events-auto" onclick="window.appLogic.showProfile()">
-                Artefactos: <span id="hud-count">0</span>
+    <div id="screen-hud" class="ui-layer ui-transparent ui-hidden">
+        <div class="hud-container">
+            <div class="hud-top">
+                <button class="btn btn-blue" style="padding: 10px; font-size: 14px; margin:0;" onclick="window.appLogic.showMenu()">Salir</button>
+                <div class="badge-count pointer-events-auto" onclick="window.appLogic.showProfile()">
+                    Tesoros: <span id="hud-count">0</span>
+                </div>
             </div>
-        </div>
-        <div class="hud-bottom">
-            <button id="collect-btn" class="btn hidden pointer-events-auto" onclick="window.appLogic.collectCurrent()">¡RECOLECTAR!</button>
+            <div class="hud-bottom">
+                <button id="collect-btn" class="btn ui-hidden pointer-events-auto" onclick="window.appLogic.collectCurrent()">¡RECOLECTAR!</button>
+            </div>
         </div>
     </div>
 
-    <div id="screen-profile" class="screen hidden">
-        <button class="btn btn-blue btn-close" onclick="window.appLogic.hideProfile()">X</button>
+    <div id="screen-profile" class="ui-layer ui-hidden" style="background: rgba(15, 23, 42, 0.95);">
+        <button class="btn btn-blue btn-close pointer-events-auto" onclick="window.appLogic.hideProfile()">X</button>
         <h2>Mi Progreso</h2>
         <p>Artefactos encontrados: <span id="profile-count">0</span> / <span id="profile-total">0</span></p>
-        <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; padding: 20px;">
+        <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; padding: 20px; pointer-events-auto;">
             </div>
     </div>
 
-    <div id="screen-admin" class="screen hidden" style="background: rgba(15, 23, 42, 0.95);">
+    <div id="screen-admin" class="ui-layer ui-hidden" style="background: rgba(15, 23, 42, 0.95); align-items: flex-start; padding-top: 40px;">
+        <button class="btn btn-blue btn-close pointer-events-auto" onclick="window.appLogic.showMenu()">X</button>
         <div class="admin-panel pointer-events-auto">
-            <button class="btn btn-blue btn-close" onclick="window.appLogic.showMenu()" style="top: 10px; right: 10px;">X</button>
             <h2 style="color: var(--sgx-dark); margin-top:0;">Panel Admin SGX</h2>
             
             <div style="display:flex; border-bottom: 2px solid var(--sgx-blue); margin-bottom: 15px;">
@@ -159,42 +183,38 @@
             </div>
 
             <div id="tab-artifacts">
-                <h3 style="color: var(--sgx-blue);">Crear Artefacto</h3>
                 <div class="form-group">
                     <label>Nombre:</label>
                     <input type="text" id="art-name" placeholder="Ej. Reliquia Taína">
                 </div>
                 <div class="form-group">
                     <label>Pista (Texto):</label>
-                    <textarea id="art-clue" rows="2" placeholder="Se encuentra cerca de..."></textarea>
+                    <textarea id="art-clue" rows="2"></textarea>
                 </div>
                 <div class="form-group">
                     <label>Foto de Pista (Referencia Visual):</label>
                     <input type="file" id="art-photo" accept="image/*">
                 </div>
                 <div class="form-group">
-                    <label>Arte Pop-out (AR):</label>
+                    <label>Arte AR (GLB < 850KB o Img):</label>
                     <select id="art-type" style="margin-bottom: 5px;">
                         <option value="image">Imagen (JPG/PNG)</option>
-                        <option value="glb">Modelo 3D (.glb - max 850kb)</option>
+                        <option value="glb">Modelo 3D (.glb)</option>
                     </select>
                     <input type="file" id="art-file" accept="image/*,.glb">
                 </div>
                 <button class="btn" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveArtifact()">Guardar Artefacto</button>
             </div>
 
-            <div id="tab-cards" class="hidden">
-                <h3 style="color: var(--sgx-blue);">Tarjetas para Imprimir</h3>
-                <p style="font-size: 12px; color: #666; text-align: left; margin-bottom: 15px;">Captura de pantalla o imprime estas tarjetas. El QR dirige a la App, el Barcode activa el AR.</p>
-                <div id="admin-cards-list" style="display:flex; flex-direction:column; gap:20px;">
-                    </div>
+            <div id="tab-cards" class="ui-hidden">
+                <p style="font-size: 12px; color: #666;">Imprime estas tarjetas. El QR dirige a la App, el Barcode activa el AR.</p>
+                <div id="admin-cards-list" style="display:flex; flex-direction:column; gap:20px;"></div>
             </div>
 
-            <div id="tab-badges" class="hidden">
-                <h3 style="color: var(--sgx-blue);">Crear Badge</h3>
+            <div id="tab-badges" class="ui-hidden">
                 <div class="form-group">
                     <label>Nombre del Badge:</label>
-                    <input type="text" id="badge-name" placeholder="Ej. Cazador Experto">
+                    <input type="text" id="badge-name">
                 </div>
                 <div class="form-group">
                     <label>Artefactos necesarios:</label>
@@ -214,7 +234,6 @@
         import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-        // Configuración exacta proveída
         const firebaseConfig = {
             apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
             authDomain: "sgx-ar-hunt.firebaseapp.com",
@@ -235,7 +254,7 @@
         let collectedIds = [];
         let currentDetectedMarker = null;
 
-        // Utilidad: Compresión Base64
+        // Utilidad: Compresión
         function compressImage(file, quality = 0.6, maxWidth = 400) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -257,7 +276,6 @@
             });
         }
 
-        // Utilidad: Leer GLB con validación
         function readGLB(file) {
             return new Promise((resolve, reject) => {
                 if (file.size > 850 * 1024) {
@@ -272,7 +290,6 @@
             });
         }
 
-        // Utilidad: Dibujar Barcode 3x3
         function drawMatrixBarcode(canvasId, id) {
             const canvas = document.getElementById(canvasId);
             if(!canvas) return;
@@ -306,7 +323,6 @@
             },
 
             loadGameData: async function() {
-                // Cargar Artefactos y generar marcadores AR
                 const artSnapshot = await getDocs(collection(db, "artifacts"));
                 artifactsData = [];
                 const markersContainer = document.getElementById('dynamic-markers');
@@ -332,7 +348,6 @@
                     markersContainer.appendChild(markerEl);
                 });
 
-                // Cargar Badges
                 const badgeSnapshot = await getDocs(collection(db, "badges"));
                 badgesData = [];
                 badgeSnapshot.forEach(doc => badgesData.push(doc.data()));
@@ -357,7 +372,7 @@
                 badgesData.forEach(badge => {
                     const unlocked = collectedIds.length >= badge.required;
                     container.innerHTML += `
-                        <div style="text-align:center; opacity: ${unlocked ? '1' : '0.4'}; filter: ${unlocked ? 'none' : 'grayscale(100%)'}; transition: all 0.3s;">
+                        <div style="text-align:center; opacity: ${unlocked ? '1' : '0.4'}; filter: ${unlocked ? 'none' : 'grayscale(100%)'};">
                             <img src="${badge.imgBase64}" style="width:80px; height:80px; border-radius:50%; border: 3px solid var(--sgx-yellow); object-fit: cover;">
                             <p style="font-size:12px; margin-top:5px; color: var(--sgx-light);">${badge.name}<br>(${badge.required} arts)</p>
                         </div>
@@ -375,14 +390,13 @@
                         <div class="card-preview">
                             <h4 style="color: var(--sgx-blue); margin:0 0 10px 0;">${art.name}</h4>
                             <p style="margin: 0 0 10px 0; color: #333; font-size:14px;">Barcode ID: <strong>${art.barcodeId}</strong></p>
-                            <p style="margin: 0 0 10px 0; color: #666; font-size:12px;">Pista: <i>${art.clue}</i></p>
                             <div style="display:flex; justify-content: space-around; align-items:center;">
                                 <div>
-                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">QR de la App</p>
+                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">QR App</p>
                                     <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(appUrl)}" alt="QR">
                                 </div>
                                 <div>
-                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">Escanear en AR</p>
+                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">Escanear AR</p>
                                     <canvas id="list-barcode-${art.barcodeId}" class="qr-img" width="150" height="150"></canvas>
                                 </div>
                             </div>
@@ -390,68 +404,64 @@
                     `;
                 });
 
-                // Dibujar los canvas
                 artifactsData.forEach(art => drawMatrixBarcode(`list-barcode-${art.barcodeId}`, art.barcodeId));
             },
 
-            // --- NAVEGACIÓN ---
             switchScreen: function(hideId, showId) {
-                document.getElementById(hideId).classList.add('hidden');
-                document.getElementById(showId).classList.remove('hidden');
+                document.getElementById(hideId).classList.add('ui-hidden');
+                document.getElementById(showId).classList.remove('ui-hidden');
             },
             showMenu: function() {
-                document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
-                document.getElementById('screen-menu').classList.remove('hidden');
+                document.querySelectorAll('.ui-layer').forEach(el => el.classList.add('ui-hidden'));
+                document.getElementById('screen-menu').classList.remove('ui-hidden');
             },
             startGame: function() {
-                this.switchScreen('screen-menu', 'screen-hud');
+                // Solo escondemos el menú; el HUD se muestra. La escena AR ya estaba lista atrás.
+                document.querySelectorAll('.ui-layer').forEach(el => el.classList.add('ui-hidden'));
+                document.getElementById('screen-hud').classList.remove('ui-hidden');
                 
-                // ¡TRUCO MAGICO PARA IOS / AR.js!
-                // Forzamos un evento de redimensión para que AR.js arregle el cálculo de la cámara.
-                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 500);
+                // Forzamos un resize suave para que iOS despierte si se quedó dormido.
+                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 300);
             },
             showInstructions: function() { this.switchScreen('screen-menu', 'screen-instructions'); },
-            showProfile: function() { document.getElementById('screen-profile').classList.remove('hidden'); },
-            hideProfile: function() { document.getElementById('screen-profile').classList.add('hidden'); },
+            showProfile: function() { document.getElementById('screen-profile').classList.remove('ui-hidden'); },
+            hideProfile: function() { document.getElementById('screen-profile').classList.add('ui-hidden'); },
             
-            // --- ADMIN ---
             promptAdmin: function() {
-                const pwd = prompt("Clave de Administrador:");
+                const pwd = prompt("Clave:");
                 if (pwd === "sgx2026") this.switchScreen('screen-menu', 'screen-admin');
                 else if (pwd !== null) alert("Clave incorrecta.");
             },
             switchAdminTab: function(tab) {
                 const tabs = ['artifacts', 'cards', 'badges'];
                 tabs.forEach(t => {
-                    document.getElementById(`tab-${t}`).classList.add('hidden');
+                    document.getElementById(`tab-${t}`).classList.add('ui-hidden');
                     document.getElementById(`btn-tab-${t}`).style.background = '#E2E8F0';
                     document.getElementById(`btn-tab-${t}`).style.color = 'var(--sgx-dark)';
                 });
-                document.getElementById(`tab-${tab}`).classList.remove('hidden');
+                document.getElementById(`tab-${tab}`).classList.remove('ui-hidden');
                 document.getElementById(`btn-tab-${tab}`).style.background = 'var(--sgx-blue)';
                 document.getElementById(`btn-tab-${tab}`).style.color = 'var(--sgx-light)';
             },
 
-            // --- LÓGICA AR ---
             onMarkerFound: function(artifactId) {
                 currentDetectedMarker = artifactId;
                 if (!collectedIds.includes(artifactId)) {
-                    document.getElementById('collect-btn').classList.remove('hidden');
+                    document.getElementById('collect-btn').classList.remove('ui-hidden');
                 }
             },
             onMarkerLost: function() {
                 currentDetectedMarker = null;
-                document.getElementById('collect-btn').classList.add('hidden');
+                document.getElementById('collect-btn').classList.add('ui-hidden');
             },
             collectCurrent: async function() {
                 if (!currentDetectedMarker) return;
                 const newCollected = [...collectedIds, currentDetectedMarker];
                 await setDoc(doc(db, "users", currentUser.uid), { collected: newCollected }, { merge: true });
-                document.getElementById('collect-btn').classList.add('hidden');
+                document.getElementById('collect-btn').classList.add('ui-hidden');
                 alert("¡Artefacto Recolectado!");
             },
 
-            // --- GUARDADO A FIRESTORE ---
             saveArtifact: async function() {
                 const name = document.getElementById('art-name').value;
                 const clue = document.getElementById('art-clue').value;
@@ -459,7 +469,7 @@
                 const type = document.getElementById('art-type').value;
                 const artFile = document.getElementById('art-file').files[0];
 
-                if(!name || !photoFile || !artFile) return alert("Completa todos los campos obligatorios.");
+                if(!name || !photoFile || !artFile) return alert("Faltan campos.");
 
                 try {
                     document.getElementById('btn-tab-artifacts').innerText = "Subiendo...";
@@ -475,7 +485,7 @@
                         name, clue, type, barcodeId, photoBase64, artBase64
                     });
 
-                    alert("Artefacto guardado exitosamente.");
+                    alert("Guardado exitoso.");
                     
                     document.getElementById('art-name').value = '';
                     document.getElementById('art-clue').value = '';
@@ -486,7 +496,7 @@
                     this.switchAdminTab('cards'); 
 
                 } catch (e) {
-                    if(e !== "File too large") alert("Error al guardar: " + e.message);
+                    if(e !== "File too large") alert("Error: " + e.message);
                 } finally {
                     document.getElementById('btn-tab-artifacts').innerText = "Crear";
                 }
@@ -497,16 +507,14 @@
                 const req = parseInt(document.getElementById('badge-req').value);
                 const imgFile = document.getElementById('badge-img').files[0];
 
-                if(!name || !imgFile) return alert("Completa todos los campos.");
+                if(!name || !imgFile) return alert("Faltan campos.");
 
                 try {
                     const imgBase64 = await compressImage(imgFile, 0.7, 200);
                     await addDoc(collection(db, "badges"), { name, required: req, imgBase64 });
                     alert("Badge guardado.");
-                    
                     document.getElementById('badge-name').value = '';
                     document.getElementById('badge-img').value = '';
-                    
                     this.loadGameData();
                 } catch(e) {
                     alert("Error: " + e.message);
