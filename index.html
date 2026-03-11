@@ -32,59 +32,52 @@
     </script>
 
     <style>
-        /* CSS BLINDADO PARA IOS SAFARI */
+        /* CSS BLINDADO: Fondo negro para esconder bordes sin romper la matemática de AR.js */
         html, body { 
             margin: 0 !important; padding: 0 !important; 
-            width: 100% !important; height: 100% !important; 
-            overflow: hidden !important; background-color: #0F172A; 
+            width: 100vw !important; height: 100vh !important; 
+            overflow: hidden !important; background-color: #000; 
             position: fixed !important; inset: 0;
             overscroll-behavior: none; -webkit-overflow-scrolling: none;
         }
         
-        /* Contenedores AR forzados a cubrir la pantalla sin barras laterales */
+        /* Contenedor AR sin alteraciones CSS extremas */
         #ar-container { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: 1; overflow: hidden; background: transparent;
-        }
-        
-        video { 
-            position: absolute !important; top: 0 !important; left: 0 !important; 
-            width: 100% !important; height: 100% !important; 
-            object-fit: cover !important; z-index: 2 !important; margin: 0 !important; padding: 0 !important;
-        }
-        
-        .a-canvas { 
-            position: absolute !important; top: 0 !important; left: 0 !important; 
-            width: 100% !important; height: 100% !important; 
-            z-index: 3 !important; 
+            display: flex; justify-content: center; align-items: center;
         }
 
+        /* Capa UI Base: No scrolleable, por encima de todo */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: 1000; pointer-events: none; overflow: hidden;
         }
 
+        /* Contenedores con Scroll interno para el Menú y Pistas */
         .scrollable-content {
             width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; pointer-events: auto;
             -webkit-overflow-scrolling: touch; padding-bottom: 80px;
         }
 
+        /* Eliminación de Scrollbars visuales */
         *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
         * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
 
         .interactive { pointer-events: auto; }
         .hidden { display: none !important; }
         
-        /* FIX iOS: Destruir popups nativos de A-Frame */
+        /* 🔥 FIX iOS: Destruir popups de permisos de A-Frame */
         .a-dialog, .a-modal, .a-enter-vr { display: none !important; pointer-events: none !important; opacity: 0 !important; } 
         
+        /* Animaciones */
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         .slide-up { animation: slideUp 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 
-    <!-- COMPONENTES AR CUSTOM -->
+    <!-- COMPONENTES AR CUSTOM (Anti-Estiramiento y Pop-Out Lógico) -->
     <script>
         AFRAME.registerComponent('fix-aspect-ratio', {
             init: function () {
@@ -111,7 +104,9 @@
                     const screenPlay = document.getElementById('screen-play');
                     if (screenPlay && !screenPlay.classList.contains('hidden')) {
                         const wrapper = this.el.querySelector('.model-wrapper');
+                        // Animación de escala Pop-Out
                         if (wrapper) wrapper.setAttribute('animation__pop', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutElastic');
+                        // Notifica al HUD
                         if (window.triggerFound) window.triggerFound(this.data.artifactId);
                     }
                 });
@@ -121,8 +116,10 @@
 </head>
 <body class="font-body text-white">
 
+    <!-- AR SCENE CONTAINER -->
     <div id="ar-container"></div>
 
+    <!-- UI LAYER -->
     <div id="ui-layer">
         
         <!-- PANTALLA CARGA -->
@@ -211,7 +208,7 @@
                                 <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Pista (Ej. Búscala en la barra)"></textarea>
                                 <div>
                                     <label class="block text-[10px] text-gray-400 mb-1 uppercase">FOTO DE LA PISTA (El Lugar)</label>
-                                    <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-gray-700 file:text-white file:border-0 file:rounded file:px-2 file:py-1">
+                                    <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">ARTE 3D POP-OUT (Imagen o .GLB)</label>
@@ -237,7 +234,7 @@
                                     <div class="flex-1"><input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Req. Cantidad"></div>
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">IMAGEN DE LA INSIGNIA</label>
+                                    <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">IMAGEN DE LA INSIGNIA (Opcional)</label>
                                     <input type="file" id="badge-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
                                 </div>
                                 <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2 transition">Guardar Insignia</button>
@@ -250,27 +247,22 @@
             </div>
         </div>
 
-        <!-- 🔥 MODAL TARJETA IMPRIMIBLE CON GENERADOR NATIVO DE BARCODES -->
+        <!-- MODAL TARJETA IMPRIMIBLE -->
         <div id="modal-print-card" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-6 interactive z-[5000]">
             <div class="w-full max-w-sm bg-white border-4 border-sgx-dark p-6 text-center rounded-xl relative shadow-2xl">
                 <button onclick="document.getElementById('modal-print-card').classList.add('hidden')" class="absolute top-2 right-2 text-gray-400 hover:text-black w-8 h-8"><i class="fa-solid fa-xmark text-xl"></i></button>
                 <h2 class="font-heading text-xl text-black uppercase font-bold mb-4" id="print-name">Nombre</h2>
-                
-                <div class="flex justify-between items-center mb-4 gap-4">
-                    <div class="w-1/2 flex flex-col items-center justify-center">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="w-1/2 flex flex-col items-center">
                         <p class="text-[10px] text-gray-500 font-bold mb-1 uppercase">1. Escanea URL</p>
                         <div id="print-qr" class="border-2 border-gray-300 p-1 rounded bg-white"></div>
                     </div>
-                    
-                    <div class="w-1/2 flex flex-col items-center justify-center">
+                    <div class="w-1/2 flex flex-col items-center">
                         <p class="text-[10px] text-sgx-blue font-bold mb-1 uppercase">2. Apunta Cámara</p>
-                        <!-- La magia: El canvas donde pintamos el Barcode matemáticamente -->
                         <img id="print-barcode-img" src="" class="w-24 h-24 border-2 border-black object-contain bg-white">
-                        <p class="text-[9px] text-gray-500 font-bold mt-1 uppercase">ID: <span id="print-barcode-id">0</span></p>
                     </div>
                 </div>
-                
-                <p class="text-xs text-sgx-blue font-bold uppercase mt-2 border-t pt-2">Spatialgineers AR Hunt</p>
+                <p class="text-xs text-sgx-blue font-bold uppercase mt-2">Spatialgineers AR Hunt</p>
             </div>
             <p class="mt-4 text-white text-sm font-bold bg-sgx-dark px-4 py-2 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-camera text-sgx-yellow mr-2"></i>Toma Screenshot para Imprimir</p>
         </div>
@@ -288,7 +280,7 @@
                 <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-house"></i></button>
             </div>
             <div class="flex justify-center mb-6 slide-up">
-                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide">
+                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide hover:bg-blue-600 transition">
                     <i class="fa-solid fa-map-location-dot mr-3"></i> Ver Pistas
                 </button>
             </div>
@@ -337,7 +329,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // CREDENCIALES EXACTAS
         const firebaseConfig = {
             apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
             authDomain: "sgx-ar-hunt.firebaseapp.com",
@@ -372,7 +363,7 @@
         function loadData() {
             const db = window.appState.db;
             
-            // Cargar Artefactos
+            // Cargar Artefactos (Público)
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'items'), (snapshot) => {
                 window.appState.artifacts = [];
                 snapshot.forEach(doc => window.appState.artifacts.push({ docId: doc.id, ...doc.data() }));
@@ -382,22 +373,15 @@
                 if(window.renderPlayerClues) window.renderPlayerClues();
                 if(window.updateHUD) window.updateHUD();
                 
-                // Transición Segura al Inicio
-                const playScreen = document.getElementById('screen-play');
-                const dashScreen = document.getElementById('screen-dash');
-                const homeScreen = document.getElementById('screen-home');
                 const loader = document.getElementById('loading-screen');
-                
-                if (loader) loader.classList.add('hidden');
-                
-                if (playScreen && dashScreen && homeScreen) {
-                    if (playScreen.classList.contains('hidden') && dashScreen.classList.contains('hidden')) {
-                        homeScreen.classList.remove('hidden');
-                    }
+                if(loader && !loader.classList.contains('hidden')) {
+                    loader.classList.add('hidden');
+                    const home = document.getElementById('screen-home');
+                    if(home) home.classList.remove('hidden');
                 }
             });
 
-            // Cargar Badges
+            // Cargar Badges (Público)
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'badges'), (snapshot) => {
                 window.appState.badges = [];
                 snapshot.forEach(doc => window.appState.badges.push({ docId: doc.id, ...doc.data() }));
@@ -405,15 +389,17 @@
                 if(window.renderBadgesList) window.renderBadgesList();
             });
 
-            // Cargar Progreso
+            // Cargar Progreso Jugador (Privado)
             onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
                 if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
                 if(window.updateHUD) window.updateHUD();
             });
         }
 
+        // COMPRESOR LOCAL EXTREMO
         window.processFileAsBase64 = (file, isGLB, callback) => {
             if (!file) return callback(null);
+            
             if (isGLB) {
                 if (file.size > 900000) {
                     window.showAlert("El archivo GLB pesa más de 900KB y Firestore lo bloqueará. Redúcelo en Blender o usa imagen.");
@@ -440,6 +426,7 @@
             }
         };
 
+        // ADMIN: GUARDAR ARTEFACTO 
         window.saveNewArtifact = async function() {
             const name = document.getElementById('item-name').value;
             const hint = document.getElementById('item-hint').value;
@@ -453,7 +440,7 @@
 
             try {
                 const usedBarcodes = window.appState.artifacts.map(a => parseInt(a.barcode));
-                let nextBarcode = 1; // Empezamos en 1 porque el barcode 0 (todo negro) a veces falla en la vida real.
+                let nextBarcode = 0;
                 while(usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
 
                 let isGLB = false;
@@ -479,6 +466,7 @@
 
         window.deleteArtifact = async function(docId) { if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); };
 
+        // ADMIN: GUARDAR BADGE
         window.saveNewBadge = async function() {
             const name = document.getElementById('badge-name').value;
             const threshold = parseInt(document.getElementById('badge-threshold').value);
@@ -502,6 +490,7 @@
 
         window.deleteBadge = async function(docId) { if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges', docId)); };
 
+        // LÓGICA DE RECOLECCIÓN (El Trigger de AR a UI)
         window.triggerFound = function(artifactId) {
             if (window.appState.foundIds.has(artifactId) || window.appState.activeARId === artifactId) return; 
             window.appState.activeARId = artifactId;
@@ -517,8 +506,8 @@
             document.getElementById('btn-collect').onclick = async () => {
                 if(rewardEl) rewardEl.classList.add('hidden');
                 window.appState.activeARId = null;
-                window.appState.foundIds.add(artifactId);
                 
+                window.appState.foundIds.add(artifactId);
                 if(window.appState.db) {
                     await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { foundList: Array.from(window.appState.foundIds) });
                 }
@@ -542,7 +531,7 @@
         initApp();
     </script>
 
-    <!-- UI GENERAL, GENERADOR AR NATIVO & INJECTOR -->
+    <!-- UI GENERAL & AR INJECTOR -->
     <script>
         window.showAlert = (msg) => { const a = document.getElementById('alert-message'); if(a) { a.innerText = msg; document.getElementById('alert-modal').classList.remove('hidden');} else alert(msg); };
         window.showScreen = (id) => { 
@@ -572,8 +561,9 @@
         
         window.toggleClues = (show) => { const c = document.getElementById('modal-clues'); if(c) show ? c.classList.remove('hidden') : c.classList.add('hidden'); };
 
+        // 🔥 LA INYECCIÓN MAESTRA (Fondo libre de CSS forzado, permite tracking perfecto) 🔥
         window.startGame = () => {
-            if(!window.appState || window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos configurados.");
+            if(!window.appState || window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos en la base de datos.");
             window.showScreen('screen-play');
             
             const container = document.getElementById('ar-container');
@@ -586,12 +576,15 @@
                     if(item.isGLB) artHTML = `<a-gltf-model src="${item.imageArt}" position="0 0.5 0" scale="0.5 0.5 0.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-gltf-model>`;
                     else artHTML = `<a-image fix-aspect-ratio src="${item.imageArt}" position="0 0.5 0" animation="property: position; to: 0 0.7 0; dir: alternate; dur: 1500; loop: true"></a-image><a-ring color="#FDCC0D" radius-inner="0.9" radius-outer="1.0" rotation="-90 0 0" animation="property: rotation; to: -90 360 0; loop: true; dur: 4000;"></a-ring>`;
                 }
-                markersHTML += `<a-marker type="barcode" value="${item.barcode}" id="marker-${item.id}" ar-logic="artifactId: ${item.id}"><a-entity class="model-wrapper" rotation="-90 0 0" scale="0 0 0">${artHTML}</a-entity></a-marker>`;
+                
+                // IMPORTANTE: emitevents="true" activa el tracking para la lógica AR
+                markersHTML += `<a-marker type="barcode" value="${item.barcode}" id="marker-${item.id}" emitevents="true" ar-logic="artifactId: ${item.id}"><a-entity class="model-wrapper" rotation="-90 0 0" scale="0 0 0">${artHTML}</a-entity></a-marker>`;
             });
 
             container.innerHTML = `<a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true" device-orientation-permission-ui="enabled: false" vr-mode-ui="enabled: false"><a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>${markersHTML}<a-entity camera></a-entity></a-scene>`;
         };
 
+        // ADMIN LISTS
         window.renderAdminList = () => {
             const list = document.getElementById('admin-artifacts-list');
             const count = document.getElementById('list-count');
@@ -601,14 +594,16 @@
             list.innerHTML = '';
             const baseUrl = window.location.href.split('?')[0]; 
             window.appState.artifacts.forEach(item => {
-                const codeNumber = item.barcode !== undefined ? item.barcode : 1; 
+                const codeNumber = item.barcode !== undefined ? item.barcode : 0; 
+                const barcodeImgUrl = `https://raw.githack.com/AR-js-org/AR.js/master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
+                
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
                         <div class="flex justify-between items-start mb-3">
                             <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-sgx-yellow">Barcode ID: ${codeNumber}</p></div>
                             <button onclick="window.deleteArtifact('${item.docId}')" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
                         </div>
-                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', ${codeNumber})" class="w-full bg-white text-black font-bold py-2 rounded text-sm hover:bg-gray-200"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta AR</button>
+                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}')" class="w-full bg-white text-black font-bold py-2 rounded text-sm hover:bg-gray-200"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta AR</button>
                     </div>
                 `;
             });
@@ -619,6 +614,7 @@
             if (!list) return;
             list.innerHTML = '';
             if(!window.appState || window.appState.badges.length === 0) return;
+            
             window.appState.badges.forEach(badge => {
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex justify-between items-center">
@@ -632,42 +628,11 @@
             });
         };
 
-        // 🔥 EL GENERADOR DE BARCODES NATIVO (Zero links caídos, 100% Offline)
-        window.generateBarcodeImage = (val) => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 250; canvas.height = 250;
-            const ctx = canvas.getContext('2d');
-            
-            // Fondo blanco y borde negro (estándar ARToolKit)
-            ctx.fillStyle = 'white'; ctx.fillRect(0,0,250,250);
-            ctx.fillStyle = 'black'; ctx.fillRect(25, 25, 200, 200);
-            
-            // Replicamos la lógica binaria exacta del matrix 3x3 de AR.js
-            for(let i=0; i<9; i++) {
-                if ((val & (1 << i)) !== 0) {
-                    const row = Math.floor(i / 3);
-                    const col = i % 3;
-                    ctx.fillStyle = 'white';
-                    ctx.fillRect(65 + (col * 40), 65 + (row * 40), 40, 40);
-                }
-            }
-            return canvas.toDataURL('image/png');
-        };
-
-        window.showPrintCard = (name, qrUrl, codeNumber) => {
-            const nameEl = document.getElementById('print-name');
-            const imgEl = document.getElementById('print-barcode-img');
-            const idEl = document.getElementById('print-barcode-id');
-            const qrEl = document.getElementById('print-qr');
-            const modal = document.getElementById('modal-print-card');
-            
-            if (nameEl && imgEl && idEl && qrEl && modal) {
+        window.showPrintCard = (name, qrUrl, barcodeUrl) => {
+            const nameEl = document.getElementById('print-name'), imgEl = document.getElementById('print-barcode-img'), qrEl = document.getElementById('print-qr'), modal = document.getElementById('modal-print-card');
+            if (nameEl && imgEl && qrEl && modal) {
                 nameEl.innerText = name; 
-                idEl.innerText = codeNumber;
-                
-                // Generamos la imagen del código de barras al vuelo sin depender de internet!
-                imgEl.setAttribute('src', window.generateBarcodeImage(codeNumber)); 
-                
+                imgEl.setAttribute('src', barcodeUrl); 
                 qrEl.innerHTML = '';
                 new QRCode(qrEl, { text: qrUrl, width: 80, height: 80, colorDark : "#0F172A", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.L });
                 modal.classList.remove('hidden');
