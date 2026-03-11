@@ -2,524 +2,564 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SGX AR Hunt</title>
-
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGX.Stage | Kinetic Visualizer v3.3</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- Three.js & Loaders -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <style>
-        :root {
-            --sgx-yellow: #FDCC0D;
-            --sgx-blue: #32527B;
-            --sgx-dark: #0F172A;
-            --sgx-light: #F8FAFC;
-        }
+        body { margin: 0; overflow: hidden; background-color: #010101; font-family: 'Rajdhani', sans-serif; color: #ffffff; user-select: none; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        .scanlines { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02)); background-size: 100% 4px, 3px 100%; z-index: 5; pointer-events: none; opacity: 0.3; }
+        .ui-layer { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; }
+        .interactive-element { pointer-events: auto; }
+        .font-tech { font-family: 'Share Tech Mono', monospace; }
+        .text-sgx-yellow { color: #FDCC0D; }
+        .bg-sgx-yellow { background-color: #FDCC0D; }
+        .glass-panel { background: rgba(5, 12, 30, 0.95); backdrop-filter: blur(30px); border: 1px solid rgba(253, 204, 13, 0.2); box-shadow: 0 0 50px rgba(0, 0, 0, 0.9); }
         
-        body, html {
-            margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
-            background-color: var(--sgx-dark); font-family: 'Segoe UI', Roboto, sans-serif;
-            color: var(--sgx-light); -webkit-user-select: none; user-select: none;
-        }
+        .glitch-text { position: relative; }
+        .glitch-text::before, .glitch-text::after { content: attr(data-text); position: absolute; top: 0; left: 0; opacity: 0.8; }
+        .glitch-text::before { left: 2px; text-shadow: -1px 0 #ff00c1; animation: glitch-anim-1 2s infinite linear alternate-reverse; }
+        .glitch-text::after { left: -2px; text-shadow: -1px 0 #00fff9; animation: glitch-anim-2 3s infinite linear alternate-reverse; }
+        @keyframes glitch-anim-1 { 0% { clip: rect(20px, 9999px, 85px, 0); } 100% { clip: rect(10px, 9999px, 90px, 0); } }
+        @keyframes glitch-anim-2 { 0% { clip: rect(12px, 9999px, 59px, 0); } 100% { clip: rect(30px, 9999px, 70px, 0); } }
         
-        /* 2. EL BLINDAJE DE LA UI: 
-           Esta capa está por encima de todo. A-Frame no puede secuestrar los clics. */
-        #ui-root {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 99999; 
-            pointer-events: none; /* Deja pasar toques a menos que la capa hija diga lo contrario */
-        }
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%; background: #FDCC0D; cursor: pointer; margin-top: -7px; box-shadow: 0 0 10px #FDCC0D; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(50, 82, 123, 0.5); border-radius: 2px; }
+        
+        .ui-transition { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease; }
+        .ui-hidden { opacity: 0; transform: scale(0.98) translateY(15px); pointer-events: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #FDCC0D; border-radius: 10px; }
+        
+        .color-input { -webkit-appearance: none; border: none; width: 100%; height: 24px; border-radius: 4px; cursor: pointer; background: transparent; }
+        .color-input::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; }
 
-        .screen-solid {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--sgx-dark); 
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            pointer-events: auto; /* Captura los toques */
-            overflow-y: auto; overflow-x: hidden; transition: opacity 0.3s;
-        }
-
-        .screen-hud {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; justify-content: space-between; padding: 20px; box-sizing: border-box;
-            pointer-events: none; /* Transparente a los toques para ver la cámara */
-            transition: opacity 0.3s;
-        }
-
-        .hidden { opacity: 0 !important; pointer-events: none !important; display: none !important; }
-        .interactive { pointer-events: auto !important; cursor: pointer; }
-
-        /* Estilos base */
-        h1, h2, h3 { color: var(--sgx-yellow); text-align: center; margin-bottom: 10px; }
-        p { text-align: center; max-width: 85%; line-height: 1.5; margin-bottom: 20px;}
-        
-        .btn { background-color: var(--sgx-yellow); color: var(--sgx-dark); border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; margin: 10px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.1s; }
-        .btn:active { transform: scale(0.95); }
-        .btn-blue { background-color: var(--sgx-blue); color: var(--sgx-light); }
-        .btn-close { position: absolute; top: 20px; right: 20px; padding: 10px 15px; font-size: 14px; }
-        
-        /* Panel Admin */
-        .admin-panel { background: var(--sgx-light); color: var(--sgx-dark); width: 90%; max-width: 500px; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative; margin: auto; }
-        .form-group { display: flex; flex-direction: column; margin-bottom: 15px; text-align: left; }
-        .form-group label { font-weight: bold; margin-bottom: 5px; color: var(--sgx-blue); }
-        .form-group input, .form-group textarea, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; }
-        .card-preview { border: 2px dashed var(--sgx-blue); padding: 15px; border-radius: 8px; text-align: center; margin-top: 15px; background: white; }
-        .qr-img { width: 100px; height: 100px; margin: 10px; object-fit: contain; }
-        
-        /* HUD UI */
-        .hud-top { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; }
-        .hud-bottom { width: 100%; display: flex; justify-content: center; padding-bottom: 30px; }
-        .badge-count { background: var(--sgx-blue); padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 18px; border: 2px solid var(--sgx-yellow); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
-        
-        #collect-btn { font-size: 22px; padding: 20px 40px; background-color: #10B981; color: white; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
-
-        #admin-lock { position: absolute; bottom: 20px; right: 20px; font-size: 24px; opacity: 0.2; }
+        .toggle-btn { background: rgba(255,255,255,0.05); color: #777; border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s; cursor: pointer; text-align: center; }
+        .toggle-btn.active { background: #FDCC0D !important; color: #000 !important; border-color: #FDCC0D !important; box-shadow: 0 0 15px rgba(253, 204, 13, 0.4); }
     </style>
-
-    <script>
-        // Lógica de Arte (Escala Proporcional y Pop-Out Animado)
-        AFRAME.registerComponent('proportional-image', {
-            schema: { src: { type: 'string' } },
-            init: function () {
-                const img = new Image();
-                img.src = this.data.src;
-                img.onload = () => {
-                    const ratio = img.width / img.height;
-                    this.el.setAttribute('geometry', `primitive: plane; width: ${ratio}; height: 1`);
-                };
-            }
-        });
-
-        AFRAME.registerComponent('pop-out', {
-            init: function () { this.el.setAttribute('scale', '0 0 0'); },
-            play: function() {
-                this.el.setAttribute('animation', { property: 'scale', to: '1.2 1.2 1.2', dur: 800, easing: 'easeOutElastic' });
-            }
-        });
-
-        // 3. Eventos nativos de MindAR
-        AFRAME.registerComponent('mindar-handler', {
-            schema: { id: { type: 'string' } },
-            init: function () {
-                this.el.addEventListener('targetFound', () => {
-                    window.appLogic.onMarkerFound(this.data.id);
-                    const child = this.el.firstElementChild;
-                    if(child) child.components['pop-out'].play();
-                });
-                this.el.addEventListener('targetLost', () => {
-                    window.appLogic.onMarkerLost();
-                });
-            }
-        });
-    </script>
 </head>
 <body>
 
-    <a-scene 
-        mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind; autoStart: false;" 
-        color-space="sRGB" 
-        renderer="colorManagement: true, physicallyCorrectLights" 
-        vr-mode-ui="enabled: false" 
-        device-orientation-permission-ui="enabled: false">
-        
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        <a-entity id="dynamic-markers"></a-entity>
-    </a-scene>
-
-    <div id="ui-root">
-        <div id="screen-loading" class="screen-solid">
-            <h1>SGX AR Hunt</h1>
-            <p>Conectando base de datos...</p>
-        </div>
-
-        <div id="screen-menu" class="screen-solid hidden">
-            <h1>Búsqueda de Tesoros</h1>
-            <p>Apunta tu cámara a las imágenes de los artefactos.</p>
-            <button class="btn interactive" onclick="window.appLogic.startGame()">Jugar Ahora</button>
-            <button class="btn btn-blue interactive" onclick="window.appLogic.showInstructions()">Instrucciones</button>
-            <div id="admin-lock" class="interactive" onclick="window.appLogic.promptAdmin()">🔒</div>
-        </div>
-
-        <div id="screen-instructions" class="screen-solid hidden">
-            <h2>Instrucciones</h2>
-            <p>1. Busca las Tarjetas SGX en el evento.</p>
-            <p>2. Apunta la cámara al dibujo central de la tarjeta.</p>
-            <p>3. ¡El arte saltará en AR! Toca "Recolectar".</p>
-            <button class="btn btn-blue interactive" onclick="window.appLogic.showMenu()">Volver</button>
-        </div>
-
-        <div id="screen-hud" class="screen-hud hidden">
-            <div class="hud-top">
-                <button class="btn btn-blue interactive" style="padding: 10px; font-size: 14px; margin:0;" onclick="window.appLogic.stopGame()">Salir</button>
-                <div class="badge-count interactive" onclick="window.appLogic.showProfile()">
-                    Tesoros: <span id="hud-count">0</span>
-                </div>
+    <div id="ui-container" class="ui-transition ui-layer flex flex-col justify-between p-4 sm:p-8 pointer-events-none">
+        <!-- Header -->
+        <div class="flex justify-between items-start">
+            <div class="glass-panel p-4 rounded-br-3xl border-l-4 border-l-sgx-yellow">
+                <h1 class="text-3xl sm:text-5xl font-bold tracking-[0.2em] text-sgx-yellow glitch-text" data-text="SGX.STAGE">SGX.STAGE</h1>
+                <p class="font-tech text-[10px] text-gray-400 mt-1 uppercase tracking-[0.3em]">Module: Kinetic_Engine_v3.3</p>
             </div>
-            <div class="hud-bottom">
-                <button id="collect-btn" class="btn interactive hidden" onclick="window.appLogic.collectCurrent()">¡RECOLECTAR!</button>
+            <div class="text-right glass-panel px-4 py-2 rounded-bl-3xl border-r-4 border-r-sgx-yellow hidden sm:block">
+                <p class="font-tech text-[10px] text-sgx-yellow uppercase tracking-tighter">Caribbean_Computing_Node</p>
+                <p class="font-tech text-[10px] text-white tracking-widest italic">CLK: <span id="clock-display">00:00:00</span></p>
             </div>
         </div>
 
-        <div id="screen-profile" class="screen-solid hidden" style="background: rgba(15, 23, 42, 0.98);">
-            <button class="btn btn-blue btn-close interactive" onclick="window.appLogic.hideProfile()">X</button>
-            <h2>Mi Progreso</h2>
-            <p>Artefactos encontrados: <span id="profile-count">0</span> / <span id="profile-total">0</span></p>
-            <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px;" class="interactive"></div>
+        <!-- Panel de Control Principal -->
+        <div class="absolute right-4 sm:right-8 top-24 sm:top-32 w-[calc(100vw-2rem)] sm:w-80 max-h-[75vh] overflow-y-auto glass-panel p-6 rounded-2xl flex flex-col space-y-6 interactive-element shadow-2xl custom-scrollbar" id="control-panel">
+            <div class="flex items-center justify-between border-b border-sgx-yellow/10 pb-4">
+                <h2 class="text-sgx-yellow font-bold tracking-widest text-xs uppercase italic font-tech">System Overrides</h2>
+                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]"></div>
+            </div>
+            
+            <button id="audio-btn" class="w-full py-4 bg-transparent border-2 border-sgx-yellow text-sgx-yellow font-bold text-[10px] uppercase tracking-[0.3em] transition-all duration-300 hover:bg-sgx-yellow hover:text-black shadow-lg active:scale-95">
+                [ Initialize Audio Sink ]
+            </button>
+
+            <!-- Media Injection -->
+            <div class="space-y-3 pt-2 border-t border-sgx-yellow/10">
+                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 block text-center italic">Media Injection</label>
+                <div class="grid grid-cols-3 gap-1">
+                    <button id="upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all">GLB</button>
+                    <button id="bg-upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all">BG IMG</button>
+                    <button id="tex-upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all" title="Triplanar Texture Wrapper">TEX MASK</button>
+                </div>
+                <div class="space-y-1 mt-2">
+                    <label class="text-[9px] text-gray-400 font-tech flex justify-between uppercase"><span>Texture Coverage (Tiling)</span><span id="val-tex-scale" class="text-white">0.1</span></label>
+                    <input type="range" id="ctrl-tex-scale" min="0.01" max="1" step="0.01" value="0.1" class="w-full">
+                </div>
+                <input type="file" id="glb-upload" accept=".glb" class="hidden">
+                <input type="file" id="bg-upload" accept="image/*" class="hidden">
+                <input type="file" id="tex-upload" accept="image/*" class="hidden">
+            </div>
+
+            <!-- Physics Engine (Individual Multi-Axis Control) -->
+            <div class="space-y-4 pt-2 border-t border-sgx-yellow/10">
+                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 flex justify-between">
+                    <span>Kinetic Logic</span>
+                    <button id="erratic-btn" class="text-white hover:text-sgx-yellow transition-colors font-tech text-[8px]">[ MAX ERRATIC ]</button>
+                </label>
+                <div class="grid grid-cols-4 gap-1">
+                    <button class="axis-btn toggle-btn text-[8px] py-2 rounded" data-axis="x">ROT_X</button>
+                    <button class="axis-btn toggle-btn active text-[8px] py-2 rounded" data-axis="y">ROT_Y</button>
+                    <button class="axis-btn toggle-btn text-[8px] py-2 rounded" data-axis="z">ROT_Z</button>
+                    <button id="rotate-toggle" class="toggle-btn active text-[8px] py-2 rounded italic font-bold">PWR</button>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Global Rotation Speed</span><span id="val-speed" class="text-white">0.01</span></label>
+                    <input type="range" id="ctrl-speed" min="0" max="0.3" step="0.001" value="0.01" class="w-full">
+                </div>
+            </div>
+
+            <!-- Morphology & Global Scale -->
+            <div class="space-y-3 pt-2 border-t border-sgx-yellow/10">
+                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2">Morphology Matrix</label>
+                <div class="grid grid-cols-3 gap-1">
+                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="reactor">REACTOR</button>
+                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="gear">CHAMFER_GEAR</button>
+                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="triangle">INFINITE_TRI</button>
+                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="mobius">LEMNISCATA</button>
+                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="knot">NEXUS_KNOT</button>
+                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="pillar">DATA_PILLAR</button>
+                </div>
+                <div class="space-y-1 mt-2">
+                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Global Asset Scale</span><span id="val-asset-scale" class="text-white">1.0</span></label>
+                    <input type="range" id="ctrl-asset-scale" min="0.1" max="5.0" step="0.05" value="1.0" class="w-full">
+                </div>
+            </div>
+
+            <!-- Shader Parameters -->
+            <div class="space-y-4 pt-2 border-t border-sgx-yellow/10">
+                <div class="space-y-1">
+                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Blueprint / Density</span><span id="val-density" class="text-white">1.0</span></label>
+                    <input type="range" id="ctrl-density" min="0" max="1" step="0.05" value="1.0" class="w-full">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Mesh Distortion</span><span id="val-distortion" class="text-white">0.5</span></label>
+                    <input type="range" id="ctrl-distortion" min="0" max="3" step="0.1" value="0.5" class="w-full">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Audio Gain</span><span id="val-sens" class="text-white">2.0</span></label>
+                    <input type="range" id="ctrl-sens" min="0.1" max="10" step="0.2" value="2.0" class="w-full">
+                </div>
+            </div>
+
+            <!-- Chroma Mapping -->
+            <div class="pt-2 border-t border-sgx-yellow/10">
+                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 mb-3 block text-center italic underline underline-offset-4 decoration-sgx-yellow/30">Chroma Matrix Mapping</label>
+                <div class="grid grid-cols-3 gap-3 px-2">
+                    <div class="text-center"><label class="text-[7px] text-gray-500 uppercase mb-1 block">Primary</label><input type="color" id="color-1" value="#FDCC0D" class="color-input"></div>
+                    <div class="text-center"><label class="text-[7px] text-gray-500 uppercase mb-1 block">Core</label><input type="color" id="color-2" value="#32527B" class="color-input"></div>
+                    <div class="text-center"><label class="text-[7px] text-gray-500 uppercase mb-1 block">Accent</label><input type="color" id="color-3" value="#B87333" class="color-input"></div>
+                </div>
+            </div>
+
+            <!-- Atmosphere -->
+            <div class="space-y-4 pt-4 border-t border-sgx-yellow/10">
+                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest italic pl-2">Atmosphere</label>
+                <div class="space-y-1">
+                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Particle Density</span><span id="val-part-count" class="text-white">5000</span></label>
+                    <input type="range" id="ctrl-part-count" min="500" max="15000" step="500" value="5000" class="w-full">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Particle Size</span><span id="val-part-size" class="text-white">0.05</span></label>
+                    <input type="range" id="ctrl-part-size" min="0.01" max="0.5" step="0.01" value="0.05" class="w-full">
+                </div>
+            </div>
         </div>
 
-        <div id="screen-admin" class="screen-solid hidden" style="padding-top: 40px; justify-content: flex-start; background: rgba(15, 23, 42, 0.98);">
-            <button class="btn btn-blue btn-close interactive" onclick="window.appLogic.showMenu()">X</button>
-            <div class="admin-panel interactive">
-                <h2 style="color: var(--sgx-dark); margin-top:0;">Panel Admin SGX</h2>
-                
-                <div style="display:flex; border-bottom: 2px solid var(--sgx-blue); margin-bottom: 15px;">
-                    <button id="btn-tab-artifacts" class="btn btn-blue interactive" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px;" onclick="window.appLogic.switchAdminTab('artifacts')">Crear</button>
-                    <button id="btn-tab-cards" class="btn interactive" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px; background: #E2E8F0; color: var(--sgx-dark);" onclick="window.appLogic.switchAdminTab('cards')">Tarjetas</button>
-                    <button id="btn-tab-badges" class="btn interactive" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px; background: #E2E8F0; color: var(--sgx-dark);" onclick="window.appLogic.switchAdminTab('badges')">Badges</button>
-                </div>
-
-                <div id="tab-artifacts">
-                    <div class="form-group">
-                        <label>Nombre:</label>
-                        <input type="text" id="art-name" placeholder="Ej. Reliquia Taína">
-                    </div>
-                    <div class="form-group">
-                        <label>Pista (Texto):</label>
-                        <textarea id="art-clue" rows="2"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Foto de Pista:</label>
-                        <input type="file" id="art-photo" accept="image/*">
-                    </div>
-                    <div class="form-group">
-                        <label>Arte AR (GLB < 850KB o Img):</label>
-                        <select id="art-type" style="margin-bottom: 5px;">
-                            <option value="image">Imagen (JPG/PNG)</option>
-                            <option value="glb">Modelo 3D (.glb)</option>
-                        </select>
-                        <input type="file" id="art-file" accept="image/*,.glb">
-                    </div>
-                    <button id="btn-save-art" class="btn interactive" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveArtifact()">Guardar Artefacto</button>
-                </div>
-
-                <div id="tab-cards" class="hidden">
-                    <p style="font-size: 12px; color: #666;">MindAR detecta imágenes complejas. Escanea la imagen objetivo desde otra pantalla para ver tu arte en AR.</p>
-                    <div id="admin-cards-list" style="display:flex; flex-direction:column; gap:20px;"></div>
-                </div>
-
-                <div id="tab-badges" class="hidden">
-                    <div class="form-group">
-                        <label>Nombre del Badge:</label>
-                        <input type="text" id="badge-name">
-                    </div>
-                    <div class="form-group">
-                        <label>Artefactos necesarios:</label>
-                        <input type="number" id="badge-req" min="1" value="1">
-                    </div>
-                    <div class="form-group">
-                        <label>Imagen del Badge:</label>
-                        <input type="file" id="badge-img" accept="image/*">
-                    </div>
-                    <button class="btn interactive" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveBadge()">Guardar Badge</button>
-                </div>
+        <!-- Footer -->
+        <div class="flex justify-between items-end font-tech text-[10px] text-gray-500 pb-16 sm:pb-0">
+            <div class="glass-panel px-4 py-2 rounded-tr-2xl border-b-2 border-b-sgx-yellow">
+                <p>OUTPUT: <span id="fps-counter" class="text-white">60</span> FPS // <span id="status-text" class="text-sgx-copper uppercase font-bold italic animate-pulse">Standby</span></p>
+                <p class="opacity-50 text-[8px]">ACTIVE_MODE: REACTIVE_SHADERS_v3</p>
+            </div>
+            <div class="text-right hidden sm:block opacity-30 leading-tight uppercase font-tech tracking-widest">
+                <p>Spatialgineers LLC</p>
+                <p>Building Realities</p>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    <!-- HUD Toggle Button -->
+    <button id="toggle-ui-btn" class="absolute bottom-6 right-6 interactive-element px-6 py-3 border-2 border-sgx-yellow/40 text-sgx-yellow bg-black/90 backdrop-blur-2xl rounded-full font-tech text-[10px] tracking-[0.4em] z-50 hover:bg-sgx-yellow hover:text-black transition-all shadow-2xl">
+        HUD: HIDE [H]
+    </button>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
-            authDomain: "sgx-ar-hunt.firebaseapp.com",
-            projectId: "sgx-ar-hunt",
-            storageBucket: "sgx-ar-hunt.firebasestorage.app",
-            messagingSenderId: "275961437368",
-            appId: "1:275961437368:web:374b6fe7332a49e680284d",
-            measurementId: "G-QV8KZR2V97"
-        };
+    <div class="scanlines"></div>
+    <div id="canvas-container"></div>
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+    <!-- Shaders GLSL -->
+    <script type="x-shader/x-vertex" id="core-vertex-shader">
+        uniform float uTime;
+        uniform float uAudioData;
+        uniform float uNoiseAmpBase;
+        uniform float uAudioSens;
+        uniform vec2 uMouse;
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
 
-        let currentUser = null;
-        let artifactsData = [];
-        let badgesData = [];
-        let collectedIds = [];
-        let currentDetectedMarker = null;
-
-        // Comprimir Imágenes
-        function compressImage(file, quality = 0.6, maxWidth = 400) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        let scaleSize = maxWidth / img.width;
-                        if(scaleSize > 1) scaleSize = 1;
-                        canvas.width = img.width * scaleSize;
-                        canvas.height = img.height * scaleSize;
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        resolve(canvas.toDataURL('image/jpeg', quality));
-                    };
-                };
-            });
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+        float snoise(vec3 v) {
+            const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+            vec3 i = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
+            vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
+            vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy;
+            i = mod289(i);
+            vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+            float n_ = 0.142857142857; vec3 ns = n_ * D.wyz - D.xzx;
+            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+            vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
+            vec4 x = x_ * ns.x + ns.yyyy; vec4 y = y_ * ns.x + ns.yyyy;
+            vec4 h = 1.0 - abs(x) - abs(y);
+            vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
+            vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
+            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+            vec3 p0 = vec3(a0.xy, h.x); vec3 p1 = vec3(a0.zw, h.y); vec3 p2 = vec3(a1.xy, h.z); vec3 p3 = vec3(a1.zw, h.w);
+            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m;
+            return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
         }
 
-        // Leer GLB
-        function readGLB(file) {
-            return new Promise((resolve, reject) => {
-                if (file.size > 850 * 1024) {
-                    alert("El archivo GLB excede los 850KB permitidos.");
-                    reject("File too large");
-                    return;
-                }
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
+        void main() {
+            vUv = uv;
+            vNormal = normal;
+            float noiseFreq = 0.6 + (uMouse.x * 0.3);
+            float noiseAmp = uNoiseAmpBase + (uAudioData * uAudioSens);
+            vec3 noisePos = vec3(position.x * noiseFreq + uTime * 0.2, position.y * noiseFreq + uTime * 0.2, position.z * noiseFreq);
+            float noiseVal = snoise(noisePos) * noiseAmp;
+            vec3 newPosition = position + normal * noiseVal;
+            vPosition = newPosition;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+        }
+    </script>
+
+    <script type="x-shader/x-fragment" id="core-fragment-shader">
+        uniform float uTime;
+        uniform vec3 uColor1;
+        uniform vec3 uColor2;
+        uniform vec3 uColor3;
+        uniform float uAudioData;
+        uniform float uDensity;
+        uniform sampler2D uTexMask;
+        uniform bool uHasTex;
+        uniform float uTexScale;
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+
+        // Función de Ruido Simplex para mezcla de colores global
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+        float snoise(vec3 v) {
+            const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+            vec3 i = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
+            vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
+            vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy;
+            i = mod289(i);
+            vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+            float n_ = 0.142857142857; vec3 ns = n_ * D.wyz - D.xzx;
+            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+            vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
+            vec4 x = x_ * ns.x + ns.yyyy; vec4 y = y_ * ns.x + ns.yyyy;
+            vec4 h = 1.0 - abs(x) - abs(y);
+            vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
+            vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
+            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+            vec3 p0 = vec3(a0.xy, h.x); vec3 p1 = vec3(a0.zw, h.y); vec3 p2 = vec3(a1.xy, h.z); vec3 p3 = vec3(a1.zw, h.w);
+            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m;
+            return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
         }
 
-        window.appLogic = {
-            init: async function() {
-                signInAnonymously(auth);
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        currentUser = user;
-                        await this.loadGameData();
-                        this.loadUserData();
-                        this.switchScreen('screen-loading', 'screen-menu');
-                    }
-                });
-            },
-
-            loadGameData: async function() {
-                const artSnapshot = await getDocs(collection(db, "artifacts"));
-                artifactsData = [];
-                const markersContainer = document.getElementById('dynamic-markers');
-                markersContainer.innerHTML = '';
-
-                // En MindAR usamos targetIndex (0 = imagen por defecto en el archivo compilado)
-                let index = 0;
-                artSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    artifactsData.push({ id: doc.id, ...data });
-                    
-                    // Para evitar errores en este build universal, anclamos el primero a la imagen de prueba
-                    if(index === 0) {
-                        const markerEl = document.createElement('a-entity');
-                        markerEl.setAttribute('mindar-image-target', `targetIndex: 0`);
-                        markerEl.setAttribute('mindar-handler', `id: ${doc.id}`);
-                        
-                        const artEl = document.createElement(data.type === 'glb' ? 'a-gltf-model' : 'a-image');
-                        artEl.setAttribute('src', data.artBase64);
-                        artEl.setAttribute('pop-out', '');
-                        artEl.setAttribute('rotation', '0 0 0'); 
-
-                        if (data.type === 'image') {
-                            artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
-                        }
-
-                        markerEl.appendChild(artEl);
-                        markersContainer.appendChild(markerEl);
-                    }
-                    index++;
-                });
-
-                const badgeSnapshot = await getDocs(collection(db, "badges"));
-                badgesData = [];
-                badgeSnapshot.forEach(doc => badgesData.push(doc.data()));
-                badgesData.sort((a,b) => a.required - b.required);
-
-                this.renderAdminCards();
-            },
-
-            loadUserData: function() {
-                onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
-                    collectedIds = docSnap.exists() ? docSnap.data().collected || [] : [];
-                    document.getElementById('hud-count').innerText = collectedIds.length;
-                    document.getElementById('profile-count').innerText = collectedIds.length;
-                    document.getElementById('profile-total').innerText = artifactsData.length;
-                    this.renderBadges();
-                });
-            },
-
-            renderBadges: function() {
-                const container = document.getElementById('badges-container');
-                container.innerHTML = '';
-                badgesData.forEach(badge => {
-                    const unlocked = collectedIds.length >= badge.required;
-                    container.innerHTML += `
-                        <div style="text-align:center; opacity: ${unlocked ? '1' : '0.4'}; filter: ${unlocked ? 'none' : 'grayscale(100%)'}; transition: all 0.3s;">
-                            <img src="${badge.imgBase64}" style="width:80px; height:80px; border-radius:50%; border: 3px solid var(--sgx-yellow); object-fit: cover;">
-                            <p style="font-size:12px; margin-top:5px; color: var(--sgx-light);">${badge.name}<br>(${badge.required} arts)</p>
-                        </div>
-                    `;
-                });
-            },
-
-            renderAdminCards: function() {
-                const container = document.getElementById('admin-cards-list');
-                container.innerHTML = '';
-                const appUrl = window.location.href.split('?')[0]; 
-                
-                // Imagen objetivo oficial de prueba de MindAR
-                const mindARImage = "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png";
-
-                if(artifactsData.length > 0) {
-                    const art = artifactsData[0];
-                    container.innerHTML += `
-                        <div class="card-preview">
-                            <h4 style="color: var(--sgx-blue); margin:0 0 10px 0;">${art.name}</h4>
-                            <p style="margin: 0 0 10px 0; color: #666; font-size:12px;">Pista: <i>${art.clue}</i></p>
-                            <div style="display:flex; justify-content: space-around; align-items:center;">
-                                <div>
-                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">QR App</p>
-                                    <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(appUrl)}" alt="QR">
-                                </div>
-                                <div>
-                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">Imagen a Escanear en AR</p>
-                                    <img class="qr-img" src="${mindARImage}" alt="Target">
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-            },
-
-            switchScreen: function(hideId, showId) {
-                document.getElementById(hideId).classList.add('hidden');
-                document.getElementById(showId).classList.remove('hidden');
-            },
-            showMenu: function() {
-                document.querySelectorAll('.screen-solid, .screen-hud').forEach(el => el.classList.add('hidden'));
-                document.getElementById('screen-menu').classList.remove('hidden');
-            },
-            startGame: function() {
-                document.querySelectorAll('.screen-solid, .screen-hud').forEach(el => el.classList.add('hidden'));
-                document.getElementById('screen-hud').classList.remove('hidden');
-                
-                // Encender motor de MindAR y pedir cámara
-                const sceneEl = document.querySelector('a-scene');
-                if(sceneEl.systems["mindar-image-system"]) {
-                    sceneEl.systems["mindar-image-system"].start();
-                }
-            },
-            stopGame: function() {
-                // Apagar cámara al salir
-                const sceneEl = document.querySelector('a-scene');
-                if(sceneEl.systems["mindar-image-system"]) {
-                    sceneEl.systems["mindar-image-system"].stop();
-                }
-                this.showMenu();
-            },
-            showInstructions: function() { this.switchScreen('screen-menu', 'screen-instructions'); },
-            showProfile: function() { document.getElementById('screen-profile').classList.remove('hidden'); },
-            hideProfile: function() { document.getElementById('screen-profile').classList.add('hidden'); },
+        void main() {
+            // Mezcla de colores global basada en ruido Simplex 3D para cobertura total
+            float noiseVal = snoise(vPosition * 0.15 + uTime * 0.2) * 0.5 + 0.5;
+            vec3 color = mix(uColor1, uColor2, noiseVal);
+            color = mix(color, uColor3, cos(vPosition.y * 0.5 - uTime * 0.4) * uAudioData);
             
-            promptAdmin: function() {
-                const pwd = prompt("Clave:");
-                if (pwd === "sgx2026") {
-                    document.querySelectorAll('.screen-solid, .screen-hud').forEach(el => el.classList.add('hidden'));
-                    document.getElementById('screen-admin').classList.remove('hidden');
-                } else if (pwd !== null) alert("Clave incorrecta.");
-            },
-            switchAdminTab: function(tab) {
-                const tabs = ['artifacts', 'cards', 'badges'];
-                tabs.forEach(t => {
-                    document.getElementById(`tab-${t}`).classList.add('hidden');
-                    document.getElementById(`btn-tab-${t}`).style.background = '#E2E8F0';
-                    document.getElementById(`btn-tab-${t}`).style.color = 'var(--sgx-dark)';
-                });
-                document.getElementById(`tab-${tab}`).classList.remove('hidden');
-                document.getElementById(`btn-tab-${tab}`).style.background = 'var(--sgx-blue)';
-                document.getElementById(`btn-tab-${tab}`).style.color = 'var(--sgx-light)';
-            },
-
-            onMarkerFound: function(artifactId) {
-                currentDetectedMarker = artifactId;
-                if (!collectedIds.includes(artifactId)) {
-                    document.getElementById('collect-btn').classList.remove('hidden');
-                }
-            },
-            onMarkerLost: function() {
-                currentDetectedMarker = null;
-                document.getElementById('collect-btn').classList.add('hidden');
-            },
-            collectCurrent: async function() {
-                if (!currentDetectedMarker) return;
-                const newCollected = [...collectedIds, currentDetectedMarker];
-                await setDoc(doc(db, "users", currentUser.uid), { collected: newCollected }, { merge: true });
-                document.getElementById('collect-btn').classList.add('hidden');
-                alert("¡Artefacto Recolectado!");
-            },
-
-            saveArtifact: async function() {
-                const name = document.getElementById('art-name').value;
-                const clue = document.getElementById('art-clue').value;
-                const photoFile = document.getElementById('art-photo').files[0];
-                const type = document.getElementById('art-type').value;
-                const artFile = document.getElementById('art-file').files[0];
-
-                if(!name || !photoFile || !artFile) return alert("Faltan campos.");
-
-                try {
-                    document.getElementById('btn-save-art').innerText = "Subiendo...";
-                    
-                    const photoBase64 = await compressImage(photoFile);
-                    let artBase64 = "";
-                    if (type === 'image') artBase64 = await compressImage(artFile, 0.8, 800);
-                    else artBase64 = await readGLB(artFile);
-
-                    await addDoc(collection(db, "artifacts"), {
-                        name, clue, type, photoBase64, artBase64
-                    });
-
-                    alert("Guardado exitoso.");
-                    
-                    document.getElementById('art-name').value = '';
-                    document.getElementById('art-clue').value = '';
-                    document.getElementById('art-photo').value = '';
-                    document.getElementById('art-file').value = '';
-
-                    await this.loadGameData(); 
-                    this.switchAdminTab('cards'); 
-
-                } catch (e) {
-                    if(e !== "File too large") alert("Error: " + e.message);
-                } finally {
-                    document.getElementById('btn-save-art').innerText = "Guardar Artefacto";
-                }
-            },
-
-            saveBadge: async function() {
-                const name = document.getElementById('badge-name').value;
-                const req = parseInt(document.getElementById('badge-req').value);
-                const imgFile = document.getElementById('badge-img').files[0];
-
-                if(!name || !imgFile) return alert("Faltan campos.");
-
-                try {
-                    const imgBase64 = await compressImage(imgFile, 0.7, 200);
-                    await addDoc(collection(db, "badges"), { name, required: req, imgBase64 });
-                    alert("Badge guardado.");
-                    document.getElementById('badge-name').value = '';
-                    document.getElementById('badge-img').value = '';
-                    this.loadGameData();
-                } catch(e) {
-                    alert("Error: " + e.message);
-                }
+            if(uHasTex) {
+                // TRIPLANAR MAPPING: Proyecta la textura desde los 3 ejes (X, Y, Z) ignorando UVs rotos
+                vec3 blending = abs(vNormal);
+                blending /= (blending.x + blending.y + blending.z);
+                
+                vec2 xUV = vPosition.yz * uTexScale;
+                vec2 yUV = vPosition.xz * uTexScale;
+                vec2 zUV = vPosition.xy * uTexScale;
+                
+                vec4 xTex = texture2D(uTexMask, xUV);
+                vec4 yTex = texture2D(uTexMask, yUV);
+                vec4 zTex = texture2D(uTexMask, zUV);
+                
+                vec4 triplanarTex = xTex * blending.x + yTex * blending.y + zTex * blending.z;
+                color = mix(color, triplanarTex.rgb, 0.7);
             }
-        };
 
-        window.addEventListener('load', () => window.appLogic.init());
+            vec3 viewDir = normalize(cameraPosition - vPosition);
+            float fresnel = pow(1.0 - clamp(dot(viewDir, vNormal), 0.0, 1.0), 3.0);
+            vec3 finalColor = color + (fresnel * uColor1 * (1.5 + uAudioData * 4.0));
+            float alpha = mix(0.4, 1.0, uDensity);
+            gl_FragColor = vec4(finalColor, alpha);
+        }
+    </script>
+
+    <script>
+        let scene, camera, renderer, activeGroup, coreWireframe, particlesMesh, gridHelper, uniforms, reactiveMaterial;
+        let audioContext, analyser, dataArray, isAudioInitialized = false;
+        let mouse = new THREE.Vector2(), targetMouse = new THREE.Vector2();
+        let windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
+        
+        // Physics Config
+        let isRotating = true;
+        let rotationAxis = { x: false, y: true, z: false };
+        let rotationSpeed = 0.01;
+        let assetScale = 1.0;
+
+        const clock = new THREE.Clock();
+        const el = (id) => document.getElementById(id);
+        const safeSetText = (id, text) => { const item = el(id); if(item) item.innerText = text; };
+
+        window.onload = () => { init(); animate(); setupEventListeners(); };
+
+        function init() {
+            const container = el('canvas-container');
+            if(!container) return;
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x010101, 0.005);
+            
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 15000);
+            camera.position.set(0, 5, 55);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ReinhardToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            container.appendChild(renderer.domElement);
+
+            uniforms = {
+                uTime: { value: 0.0 }, uAudioData: { value: 0.0 }, 
+                uColor1: { value: new THREE.Color(0xFDCC0D) },
+                uColor2: { value: new THREE.Color(0x32527B) }, 
+                uColor3: { value: new THREE.Color(0xB87333) }, 
+                uNoiseAmpBase: { value: 0.5 },
+                uAudioSens: { value: 2.0 }, uMouse: { value: new THREE.Vector2(0, 0) },
+                uDensity: { value: 1.0 },
+                uTexMask: { value: null }, uHasTex: { value: false }, uTexScale: { value: 0.1 }
+            };
+
+            reactiveMaterial = new THREE.ShaderMaterial({
+                vertexShader: el('core-vertex-shader').textContent,
+                fragmentShader: el('core-fragment-shader').textContent,
+                uniforms: uniforms, transparent: true, side: THREE.DoubleSide
+            });
+
+            activeGroup = new THREE.Group();
+            scene.add(activeGroup);
+
+            changeMorphology('reactor');
+            createParticles(5000, 0.05);
+
+            gridHelper = new THREE.GridHelper(1000, 100, 0x32527B, 0x0a0a0a);
+            gridHelper.position.y = -40;
+            gridHelper.material.transparent = true;
+            gridHelper.material.opacity = 0.2;
+            scene.add(gridHelper);
+        }
+
+        function createParticles(count, size) {
+            if(particlesMesh) { scene.remove(particlesMesh); particlesMesh.geometry.dispose(); particlesMesh.material.dispose(); }
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            for(let i = 0; i < count * 3; i++) { pos[i] = (Math.random() - 0.5) * 600; }
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            particlesMesh = new THREE.Points(geo, new THREE.PointsMaterial({ 
+                size: size, color: uniforms.uColor1.value, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending 
+            }));
+            scene.add(particlesMesh);
+        }
+
+        async function initAudio() {
+            try {
+                if (audioContext && audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser(); analyser.fftSize = 256;
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                isAudioInitialized = true;
+                const btn = el('audio-btn');
+                if(btn) { btn.innerText = "REACTOR: ONLINE"; btn.classList.add('bg-sgx-yellow', 'text-black'); }
+                safeSetText('status-text', 'Live Synchronized');
+            } catch (err) { safeSetText('status-text', 'Access Denied'); }
+        }
+
+        function changeMorphology(type) {
+            while(activeGroup.children.length > 0) activeGroup.remove(activeGroup.children[0]);
+            let newGeo, newWireGeo;
+            switch(type) {
+                case 'reactor': newGeo = new THREE.IcosahedronGeometry(10, 64); newWireGeo = new THREE.IcosahedronGeometry(10.2, 12); break;
+                case 'gear':
+                    const gearShape = new THREE.Shape();
+                    const teeth = 12, inner = 7, outer = 11, chamfer = 0.5;
+                    const step = Math.PI * 2 / teeth;
+                    for (let i = 0; i < teeth; i++) {
+                        const a = i * step;
+                        const aNext = (i + 1) * step;
+                        // Diseño trapezoidal (chamfered)
+                        if (i === 0) gearShape.moveTo(Math.cos(a - 0.1)*inner, Math.sin(a - 0.1)*inner);
+                        gearShape.lineTo(Math.cos(a + 0.1)*inner, Math.sin(a + 0.1)*inner);
+                        gearShape.lineTo(Math.cos(a + 0.2)*outer, Math.sin(a + 0.2)*outer);
+                        gearShape.lineTo(Math.cos(a + step - 0.2)*outer, Math.sin(a + step - 0.2)*outer);
+                        gearShape.lineTo(Math.cos(a + step - 0.1)*inner, Math.sin(a + step - 0.1)*inner);
+                    }
+                    gearShape.closePath();
+                    const hole = new THREE.Path(); hole.absarc(0, 0, 3.5, 0, Math.PI * 2, true); gearShape.holes.push(hole);
+                    newGeo = new THREE.ExtrudeGeometry(gearShape, { depth: 4, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, curveSegments: 64 });
+                    newWireGeo = newGeo.clone(); break;
+                case 'triangle': newGeo = new THREE.TorusGeometry(12, 5, 3, 100); newWireGeo = new THREE.TorusGeometry(12.3, 5.1, 3, 40); break;
+                case 'mobius': // Lemniscata Tubing
+                    const lemniscateFunc = (u, v, target) => {
+                        u *= Math.PI * 2;
+                        const t = u;
+                        const scale = 15.0;
+                        const x = (scale * Math.cos(t)) / (1.0 + Math.pow(Math.sin(t), 2.0));
+                        const y = (scale * Math.sin(t) * Math.cos(t)) / (1.0 + Math.pow(Math.sin(t), 2.0));
+                        
+                        // Tubing logic
+                        const phi = v * Math.PI * 2;
+                        const r = 2.0;
+                        target.set(x + r * Math.cos(phi), y + r * Math.sin(phi), r * Math.sin(phi + u));
+                    };
+                    newGeo = new THREE.ParametricBufferGeometry(lemniscateFunc, 128, 32); newWireGeo = newGeo.clone(); break;
+                case 'knot': newGeo = new THREE.TorusKnotGeometry(8, 3, 200, 50); newWireGeo = new THREE.TorusKnotGeometry(8.3, 3.1, 100, 20); break;
+                case 'pillar': newGeo = new THREE.CylinderGeometry(7, 7, 60, 64, 32); newWireGeo = new THREE.CylinderGeometry(7.2, 7.2, 60.2, 16, 8); break;
+            }
+            const mesh = new THREE.Mesh(newGeo, reactiveMaterial);
+            activeGroup.add(mesh);
+            coreWireframe = new THREE.Mesh(newWireGeo, new THREE.MeshBasicMaterial({ color: 0xFFFFFF, wireframe: true, transparent: true, opacity: 0.05 }));
+            activeGroup.add(coreWireframe);
+            updateGroupScale();
+        }
+
+        function updateGroupScale() {
+            activeGroup.scale.set(assetScale, assetScale, assetScale);
+        }
+
+        function setupEventListeners() {
+            window.addEventListener('resize', () => { windowHalfX = window.innerWidth / 2; windowHalfY = window.innerHeight / 2; camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+            document.addEventListener('mousemove', (e) => { targetMouse.set((e.clientX - windowHalfX) / windowHalfX, (e.clientY - windowHalfY) / windowHalfY); });
+            document.addEventListener('touchmove', (e) => { if(e.touches.length > 0) targetMouse.set((e.touches[0].clientX - windowHalfX) / windowHalfX, (e.touches[0].clientY - windowHalfY) / windowHalfY); });
+
+            const ui = el('ui-container'), btn = el('toggle-ui-btn');
+            if(btn && ui) { btn.onclick = () => { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; }; }
+            document.addEventListener('keydown', (e) => { if((e.key.toLowerCase() === 'h' || e.key === 'Escape') && ui && btn) { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; } });
+            document.addEventListener('click', () => { if (audioContext && audioContext.state === 'suspended') audioContext.resume(); });
+
+            if(el('audio-btn')) el('audio-btn').onclick = (e) => { e.stopPropagation(); if(!isAudioInitialized) initAudio(); };
+            if(el('ctrl-distortion')) el('ctrl-distortion').oninput = (e) => { uniforms.uNoiseAmpBase.value = parseFloat(e.target.value); safeSetText('val-distortion', e.target.value); };
+            if(el('ctrl-sens')) el('ctrl-sens').oninput = (e) => { uniforms.uAudioSens.value = parseFloat(e.target.value); safeSetText('val-sens', e.target.value); };
+            if(el('ctrl-density')) el('ctrl-density').oninput = (e) => { uniforms.uDensity.value = parseFloat(e.target.value); safeSetText('val-density', e.target.value); if(coreWireframe) coreWireframe.material.opacity = (1 - parseFloat(e.target.value)) * 0.4 + 0.05; };
+            if(el('ctrl-part-count')) el('ctrl-part-count').onchange = (e) => { createParticles(parseInt(e.target.value), parseFloat(el('ctrl-part-size').value)); safeSetText('val-part-count', e.target.value); };
+            if(el('ctrl-part-size')) el('ctrl-part-size').oninput = (e) => { if(particlesMesh) particlesMesh.material.size = parseFloat(e.target.value); safeSetText('val-part-size', e.target.value); };
+            if(el('ctrl-tex-scale')) el('ctrl-tex-scale').oninput = (e) => { uniforms.uTexScale.value = parseFloat(e.target.value); safeSetText('val-tex-scale', e.target.value); };
+            if(el('ctrl-asset-scale')) el('ctrl-asset-scale').oninput = (e) => { assetScale = parseFloat(e.target.value); updateGroupScale(); safeSetText('val-asset-scale', e.target.value); };
+
+            if(el('rotate-toggle')) el('rotate-toggle').onclick = (e) => { isRotating = !isRotating; e.target.classList.toggle('active', isRotating); };
+            if(el('ctrl-speed')) el('ctrl-speed').oninput = (e) => { rotationSpeed = parseFloat(e.target.value); safeSetText('val-speed', e.target.value); };
+            document.querySelectorAll('.axis-btn').forEach(b => b.onclick = (e) => { const axis = e.target.dataset.axis; rotationAxis[axis] = !rotationAxis[axis]; e.target.classList.toggle('active', rotationAxis[axis]); });
+            if(el('erratic-btn')) el('erratic-btn').onclick = () => { isRotating = true; el('rotate-toggle').classList.add('active'); rotationAxis = {x: true, y: true, z: true}; document.querySelectorAll('.axis-btn').forEach(b => b.classList.add('active')); rotationSpeed = 0.15; el('ctrl-speed').value = 0.15; safeSetText('val-speed', "0.15"); };
+
+            if(el('color-1')) el('color-1').oninput = (e) => { uniforms.uColor1.value.set(e.target.value); if(particlesMesh) particlesMesh.material.color.set(e.target.value); };
+            if(el('color-2')) el('color-2').oninput = (e) => uniforms.uColor2.value.set(e.target.value);
+            if(el('color-3')) el('color-3').oninput = (e) => uniforms.uColor3.set(e.target.value);
+
+            document.querySelectorAll('.geo-btn').forEach(b => b.onclick = (e) => changeMorphology(e.target.dataset.geo));
+
+            const glbIn = el('glb-upload'), bgIn = el('bg-upload'), texIn = el('tex-upload');
+            if(el('upload-trigger')) el('upload-trigger').onclick = () => glbIn.click();
+            if(el('bg-upload-trigger')) el('bg-upload-trigger').onclick = () => bgIn.click();
+            if(el('tex-upload-trigger')) el('tex-upload-trigger').onclick = () => texIn.click();
+
+            glbIn.onchange = (ev) => {
+                const file = ev.target.files[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    new THREE.GLTFLoader().parse(e.target.result, '', (gltf) => {
+                        while(activeGroup.children.length > 0) activeGroup.remove(activeGroup.children[0]);
+                        const model = gltf.scene;
+                        model.traverse((child) => { if (child.isMesh) { child.material = reactiveMaterial; } });
+                        const box = new THREE.Box3().setFromObject(model);
+                        model.position.sub(box.getCenter(new THREE.Vector3()));
+                        const s = 40 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
+                        model.scale.set(s, s, s);
+                        activeGroup.add(model);
+                        safeSetText('status-text', 'Asset_Injected');
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            };
+
+            bgIn.onchange = (ev) => {
+                const file = ev.target.files[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => { new THREE.TextureLoader().load(e.target.result, (tex) => { scene.background = tex; }); };
+                reader.readAsDataURL(file);
+            };
+
+            texIn.onchange = (ev) => {
+                const file = ev.target.files[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    new THREE.TextureLoader().load(e.target.result, (tex) => {
+                        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                        uniforms.uTexMask.value = tex;
+                        uniforms.uHasTex.value = true;
+                        safeSetText('status-text', 'TRIPLANAR_WRAP_360');
+                    });
+                };
+                reader.readAsDataURL(file);
+            };
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+            safeSetText('clock-display', new Date().toTimeString().split(' ')[0]);
+            
+            if (isAudioInitialized && analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0; for(let i=0; i<15; i++) sum += dataArray[i];
+                const audio = sum / 15 / 255.0;
+                uniforms.uAudioData.value = audio;
+                if(gridHelper) gridHelper.position.y = -40 + (audio * 15);
+                if(particlesMesh) { particlesMesh.rotation.y += audio * 0.05; particlesMesh.position.z = Math.sin(time) * 20 * audio; }
+            } else { uniforms.uAudioData.value = Math.sin(time * 1.5) * 0.12 + 0.1; }
+            
+            uniforms.uTime.value = time;
+            uniforms.uMouse.value.lerp(targetMouse, 0.05);
+            mouse.lerp(targetMouse, 0.05);
+            camera.position.x += (mouse.x * 40 - camera.position.x) * 0.05;
+            camera.position.y += (-mouse.y * 25 + 5 - camera.position.y) * 0.05;
+            camera.lookAt(0,0,0);
+            
+            if(isRotating) {
+                if(rotationAxis.x) activeGroup.rotation.x += rotationSpeed;
+                if(rotationAxis.y) activeGroup.rotation.y += rotationSpeed;
+                if(rotationAxis.z) activeGroup.rotation.z += rotationSpeed;
+            }
+
+            if(Math.round(time*10)%5===0) safeSetText('fps-counter', Math.round(1/clock.getDelta()));
+            renderer.render(scene, camera);
+        }
     </script>
 </body>
 </html>
