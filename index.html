@@ -13,9 +13,12 @@
             --sgx-dark: #0F172A;
             --sgx-light: #F8FAFC;
         }
+        
+        /* FIX: Fondo transparente para que la cámara con z-index negativo se vea */
         body, html {
             margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
-            background-color: var(--sgx-dark); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: transparent !important; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: var(--sgx-light); -webkit-user-select: none; user-select: none;
         }
         
@@ -33,7 +36,7 @@
         /* UI Layers */
         .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; background: var(--sgx-dark); transition: opacity 0.3s; overflow-y: auto; }
         .hidden { display: none !important; opacity: 0; pointer-events: none; }
-        .overlay { background: transparent; pointer-events: none; z-index: 20; justify-content: space-between; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        .overlay { background: transparent !important; pointer-events: none; z-index: 20; justify-content: space-between; padding: 20px; box-sizing: border-box; overflow: hidden; }
         .pointer-events-auto { pointer-events: auto; }
 
         /* Components */
@@ -55,8 +58,8 @@
         /* AR HUD */
         .hud-top { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: auto; }
         .hud-bottom { width: 100%; display: flex; justify-content: center; margin-bottom: 20px; pointer-events: auto; }
-        .badge-count { background: var(--sgx-blue); padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 18px; border: 2px solid var(--sgx-yellow); }
-        #collect-btn { font-size: 22px; padding: 20px 40px; background-color: #10B981; color: white; animation: pulse 1.5s infinite; }
+        .badge-count { background: var(--sgx-blue); padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 18px; border: 2px solid var(--sgx-yellow); cursor: pointer; }
+        #collect-btn { font-size: 22px; padding: 20px 40px; background-color: #10B981; color: white; animation: pulse 1.5s infinite; cursor: pointer; }
         
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
 
@@ -137,7 +140,7 @@
 
     <div id="screen-hud" class="screen overlay hidden">
         <div class="hud-top">
-            <button class="btn btn-blue" style="padding: 10px; font-size: 14px;" onclick="window.appLogic.showMenu()">Salir</button>
+            <button class="btn btn-blue pointer-events-auto" style="padding: 10px; font-size: 14px;" onclick="window.appLogic.showMenu()">Salir</button>
             <div class="badge-count pointer-events-auto" onclick="window.appLogic.showProfile()">
                 Artefactos: <span id="hud-count">0</span>
             </div>
@@ -345,7 +348,7 @@
                 badgeSnapshot.forEach(doc => badgesData.push(doc.data()));
                 badgesData.sort((a,b) => a.required - b.required);
 
-                this.renderAdminCards(); // Actualiza la lista del admin
+                this.renderAdminCards(); 
             },
 
             loadUserData: function() {
@@ -375,13 +378,13 @@
             renderAdminCards: function() {
                 const container = document.getElementById('admin-cards-list');
                 container.innerHTML = '';
-                const appUrl = window.location.href.split('?')[0]; // Clean URL
+                const appUrl = window.location.href.split('?')[0]; 
                 
                 artifactsData.forEach(art => {
                     container.innerHTML += `
-                        <div class="card-preview">
+                        <div class="card-preview" style="background: white; color: black; border: 2px dashed var(--sgx-blue);">
                             <h4 style="color: var(--sgx-blue); margin:0 0 10px 0;">${art.name}</h4>
-                            <p style="margin: 0 0 10px 0;">ID Barcode: <strong>${art.barcodeId}</strong></p>
+                            <p style="margin: 0 0 10px 0; color: black;">ID Barcode: <strong>${art.barcodeId}</strong></p>
                             <div style="display:flex; justify-content: space-around; align-items:center;">
                                 <div>
                                     <p style="font-size: 12px; color: #666; margin: 0;">QR (Link App)</p>
@@ -396,7 +399,6 @@
                     `;
                 });
 
-                // Dibujar los canvas despues de inyectar el HTML
                 artifactsData.forEach(art => drawMatrixBarcode(`list-barcode-${art.barcodeId}`, art.barcodeId));
             },
 
@@ -477,14 +479,13 @@
 
                     alert("Artefacto guardado exitosamente.");
                     
-                    // Limpiar campos
                     document.getElementById('art-name').value = '';
                     document.getElementById('art-clue').value = '';
                     document.getElementById('art-photo').value = '';
                     document.getElementById('art-file').value = '';
 
-                    await this.loadGameData(); // Recarga la escena y la lista de tarjetas
-                    this.switchAdminTab('cards'); // Te lleva a ver la tarjeta generada
+                    await this.loadGameData();
+                    this.switchAdminTab('cards');
 
                 } catch (e) {
                     if(e !== "File too large") alert("Error al guardar: " + e.message);
