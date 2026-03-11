@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SGX AR Hunt</title>
 
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
         :root {
@@ -21,32 +21,37 @@
             background-color: var(--sgx-dark); font-family: 'Segoe UI', Roboto, sans-serif;
             color: var(--sgx-light); -webkit-user-select: none; user-select: none;
         }
+        
+        /* 2. EL BLINDAJE DE LA UI: 
+           Esta capa está por encima de todo. A-Frame no puede secuestrar los clics. */
+        #ui-root {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 99999; 
+            pointer-events: none; /* Deja pasar toques a menos que la capa hija diga lo contrario */
+        }
 
-        /* CAPAS DE INTERFAZ (UI)
-           Usamos display: none (.hidden) en lugar de opacidad. 
-           Esto asegura que los elementos ocultos jamás bloqueen un toque.
-        */
         .screen-solid {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: var(--sgx-dark); z-index: 1000;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--sgx-dark); 
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            overflow-y: auto; pointer-events: auto;
+            pointer-events: auto; /* Captura los toques */
+            overflow-y: auto; overflow-x: hidden; transition: opacity 0.3s;
         }
 
         .screen-hud {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            z-index: 1000; pointer-events: none; /* Deja pasar los toques a la cámara */
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; justify-content: space-between; padding: 20px; box-sizing: border-box;
+            pointer-events: none; /* Transparente a los toques para ver la cámara */
+            transition: opacity 0.3s;
         }
 
-        .hidden { display: none !important; }
+        .hidden { opacity: 0 !important; pointer-events: none !important; display: none !important; }
         .interactive { pointer-events: auto !important; cursor: pointer; }
 
-        /* Estilos de Componentes */
+        /* Estilos base */
         h1, h2, h3 { color: var(--sgx-yellow); text-align: center; margin-bottom: 10px; }
         p { text-align: center; max-width: 85%; line-height: 1.5; margin-bottom: 20px;}
         
-        .btn { background-color: var(--sgx-yellow); color: var(--sgx-dark); border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; margin: 10px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .btn { background-color: var(--sgx-yellow); color: var(--sgx-dark); border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; margin: 10px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.1s; }
         .btn:active { transform: scale(0.95); }
         .btn-blue { background-color: var(--sgx-blue); color: var(--sgx-light); }
         .btn-close { position: absolute; top: 20px; right: 20px; padding: 10px 15px; font-size: 14px; }
@@ -57,9 +62,9 @@
         .form-group label { font-weight: bold; margin-bottom: 5px; color: var(--sgx-blue); }
         .form-group input, .form-group textarea, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; }
         .card-preview { border: 2px dashed var(--sgx-blue); padding: 15px; border-radius: 8px; text-align: center; margin-top: 15px; background: white; }
-        .qr-img { width: 100px; height: 100px; margin: 10px; image-rendering: pixelated; border: 1px solid #eee;}
+        .qr-img { width: 100px; height: 100px; margin: 10px; object-fit: contain; }
         
-        /* HUD y Badges */
+        /* HUD UI */
         .hud-top { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; }
         .hud-bottom { width: 100%; display: flex; justify-content: center; padding-bottom: 30px; }
         .badge-count { background: var(--sgx-blue); padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 18px; border: 2px solid var(--sgx-yellow); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
@@ -87,134 +92,135 @@
         AFRAME.registerComponent('pop-out', {
             init: function () { this.el.setAttribute('scale', '0 0 0'); },
             play: function() {
-                this.el.setAttribute('animation', { property: 'scale', to: '1.5 1.5 1.5', dur: 800, easing: 'easeOutElastic' });
+                this.el.setAttribute('animation', { property: 'scale', to: '1.2 1.2 1.2', dur: 800, easing: 'easeOutElastic' });
             }
         });
 
-        // Eventos de Escaneo AR
-        AFRAME.registerComponent('marker-handler', {
+        // 3. Eventos nativos de MindAR
+        AFRAME.registerComponent('mindar-handler', {
             schema: { id: { type: 'string' } },
             init: function () {
-                this.el.addEventListener('markerFound', () => {
+                this.el.addEventListener('targetFound', () => {
                     window.appLogic.onMarkerFound(this.data.id);
                     const child = this.el.firstElementChild;
                     if(child) child.components['pop-out'].play();
                 });
-                this.el.addEventListener('markerLost', () => {
+                this.el.addEventListener('targetLost', () => {
                     window.appLogic.onMarkerLost();
                 });
             }
-        });
-
-        // FIX para iOS: Forzar ajuste de pantalla al cargar la cámara
-        window.addEventListener('camera-init', () => {
-            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 500);
         });
     </script>
 </head>
 <body>
 
-    <div id="ar-wrapper" style="position: absolute; top:0; left:0; width:100vw; height:100vh; z-index: 1;">
-        <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" renderer="logarithmicDepthBuffer: true;" vr-mode-ui="enabled: false">
-            <a-entity id="dynamic-markers"></a-entity>
-            <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        </a-scene>
-    </div>
+    <a-scene 
+        mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind; autoStart: false;" 
+        color-space="sRGB" 
+        renderer="colorManagement: true, physicallyCorrectLights" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false">
+        
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        <a-entity id="dynamic-markers"></a-entity>
+    </a-scene>
 
-    <div id="screen-loading" class="screen-solid">
-        <h1>SGX AR Hunt</h1>
-        <p>Conectando sistemas...</p>
-    </div>
+    <div id="ui-root">
+        <div id="screen-loading" class="screen-solid">
+            <h1>SGX AR Hunt</h1>
+            <p>Conectando base de datos...</p>
+        </div>
 
-    <div id="screen-menu" class="screen-solid hidden">
-        <h1>Búsqueda de Tesoros</h1>
-        <p>Encuentra los artefactos escondidos escaneando los Barcodes AR.</p>
-        <button class="btn interactive" onclick="window.appLogic.startGame()">Jugar Ahora</button>
-        <button class="btn btn-blue interactive" onclick="window.appLogic.showInstructions()">Instrucciones</button>
-        <div id="admin-lock" class="interactive" onclick="window.appLogic.promptAdmin()">🔒</div>
-    </div>
+        <div id="screen-menu" class="screen-solid hidden">
+            <h1>Búsqueda de Tesoros</h1>
+            <p>Apunta tu cámara a las imágenes de los artefactos.</p>
+            <button class="btn interactive" onclick="window.appLogic.startGame()">Jugar Ahora</button>
+            <button class="btn btn-blue interactive" onclick="window.appLogic.showInstructions()">Instrucciones</button>
+            <div id="admin-lock" class="interactive" onclick="window.appLogic.promptAdmin()">🔒</div>
+        </div>
 
-    <div id="screen-instructions" class="screen-solid hidden">
-        <h2>Instrucciones</h2>
-        <p>1. Busca las tarjetas en el evento.</p>
-        <p>2. Apunta la cámara al Barcode cuadrado.</p>
-        <p>3. ¡El arte saltará! Toca "Recolectar".</p>
-        <button class="btn btn-blue interactive" onclick="window.appLogic.showMenu()">Volver</button>
-    </div>
+        <div id="screen-instructions" class="screen-solid hidden">
+            <h2>Instrucciones</h2>
+            <p>1. Busca las Tarjetas SGX en el evento.</p>
+            <p>2. Apunta la cámara al dibujo central de la tarjeta.</p>
+            <p>3. ¡El arte saltará en AR! Toca "Recolectar".</p>
+            <button class="btn btn-blue interactive" onclick="window.appLogic.showMenu()">Volver</button>
+        </div>
 
-    <div id="screen-hud" class="screen-hud hidden">
-        <div class="hud-top">
-            <button class="btn btn-blue interactive" style="padding: 10px; font-size: 14px; margin:0;" onclick="window.appLogic.showMenu()">Volver</button>
-            <div class="badge-count interactive" onclick="window.appLogic.showProfile()">
-                Tesoros: <span id="hud-count">0</span>
+        <div id="screen-hud" class="screen-hud hidden">
+            <div class="hud-top">
+                <button class="btn btn-blue interactive" style="padding: 10px; font-size: 14px; margin:0;" onclick="window.appLogic.stopGame()">Salir</button>
+                <div class="badge-count interactive" onclick="window.appLogic.showProfile()">
+                    Tesoros: <span id="hud-count">0</span>
+                </div>
+            </div>
+            <div class="hud-bottom">
+                <button id="collect-btn" class="btn interactive hidden" onclick="window.appLogic.collectCurrent()">¡RECOLECTAR!</button>
             </div>
         </div>
-        <div class="hud-bottom">
-            <button id="collect-btn" class="btn interactive hidden" onclick="window.appLogic.collectCurrent()">¡RECOLECTAR!</button>
+
+        <div id="screen-profile" class="screen-solid hidden" style="background: rgba(15, 23, 42, 0.98);">
+            <button class="btn btn-blue btn-close interactive" onclick="window.appLogic.hideProfile()">X</button>
+            <h2>Mi Progreso</h2>
+            <p>Artefactos encontrados: <span id="profile-count">0</span> / <span id="profile-total">0</span></p>
+            <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px;" class="interactive"></div>
         </div>
-    </div>
 
-    <div id="screen-profile" class="screen-solid hidden">
-        <button class="btn btn-blue btn-close interactive" onclick="window.appLogic.hideProfile()">X</button>
-        <h2>Mi Progreso</h2>
-        <p>Artefactos encontrados: <span id="profile-count">0</span> / <span id="profile-total">0</span></p>
-        <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px;" class="interactive"></div>
-    </div>
+        <div id="screen-admin" class="screen-solid hidden" style="padding-top: 40px; justify-content: flex-start; background: rgba(15, 23, 42, 0.98);">
+            <button class="btn btn-blue btn-close interactive" onclick="window.appLogic.showMenu()">X</button>
+            <div class="admin-panel interactive">
+                <h2 style="color: var(--sgx-dark); margin-top:0;">Panel Admin SGX</h2>
+                
+                <div style="display:flex; border-bottom: 2px solid var(--sgx-blue); margin-bottom: 15px;">
+                    <button id="btn-tab-artifacts" class="btn btn-blue interactive" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px;" onclick="window.appLogic.switchAdminTab('artifacts')">Crear</button>
+                    <button id="btn-tab-cards" class="btn interactive" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px; background: #E2E8F0; color: var(--sgx-dark);" onclick="window.appLogic.switchAdminTab('cards')">Tarjetas</button>
+                    <button id="btn-tab-badges" class="btn interactive" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px; background: #E2E8F0; color: var(--sgx-dark);" onclick="window.appLogic.switchAdminTab('badges')">Badges</button>
+                </div>
 
-    <div id="screen-admin" class="screen-solid hidden" style="padding-top: 40px; justify-content: flex-start;">
-        <button class="btn btn-blue btn-close interactive" onclick="window.appLogic.showMenu()">X</button>
-        <div class="admin-panel interactive">
-            <h2 style="color: var(--sgx-dark); margin-top:0;">Panel Admin SGX</h2>
-            
-            <div style="display:flex; border-bottom: 2px solid var(--sgx-blue); margin-bottom: 15px;">
-                <button id="btn-tab-artifacts" class="btn btn-blue interactive" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px;" onclick="window.appLogic.switchAdminTab('artifacts')">Crear</button>
-                <button id="btn-tab-cards" class="btn interactive" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px; background: #E2E8F0; color: var(--sgx-dark);" onclick="window.appLogic.switchAdminTab('cards')">Tarjetas</button>
-                <button id="btn-tab-badges" class="btn interactive" style="flex:1; margin:0 2px; font-size: 14px; padding: 10px; background: #E2E8F0; color: var(--sgx-dark);" onclick="window.appLogic.switchAdminTab('badges')">Badges</button>
-            </div>
+                <div id="tab-artifacts">
+                    <div class="form-group">
+                        <label>Nombre:</label>
+                        <input type="text" id="art-name" placeholder="Ej. Reliquia Taína">
+                    </div>
+                    <div class="form-group">
+                        <label>Pista (Texto):</label>
+                        <textarea id="art-clue" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Foto de Pista:</label>
+                        <input type="file" id="art-photo" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label>Arte AR (GLB < 850KB o Img):</label>
+                        <select id="art-type" style="margin-bottom: 5px;">
+                            <option value="image">Imagen (JPG/PNG)</option>
+                            <option value="glb">Modelo 3D (.glb)</option>
+                        </select>
+                        <input type="file" id="art-file" accept="image/*,.glb">
+                    </div>
+                    <button id="btn-save-art" class="btn interactive" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveArtifact()">Guardar Artefacto</button>
+                </div>
 
-            <div id="tab-artifacts">
-                <div class="form-group">
-                    <label>Nombre:</label>
-                    <input type="text" id="art-name" placeholder="Ej. Reliquia Taína">
+                <div id="tab-cards" class="hidden">
+                    <p style="font-size: 12px; color: #666;">MindAR detecta imágenes complejas. Escanea la imagen objetivo desde otra pantalla para ver tu arte en AR.</p>
+                    <div id="admin-cards-list" style="display:flex; flex-direction:column; gap:20px;"></div>
                 </div>
-                <div class="form-group">
-                    <label>Pista (Texto):</label>
-                    <textarea id="art-clue" rows="2"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Foto de Pista:</label>
-                    <input type="file" id="art-photo" accept="image/*">
-                </div>
-                <div class="form-group">
-                    <label>Arte AR (GLB < 850KB o Img):</label>
-                    <select id="art-type" style="margin-bottom: 5px;">
-                        <option value="image">Imagen (JPG/PNG)</option>
-                        <option value="glb">Modelo 3D (.glb)</option>
-                    </select>
-                    <input type="file" id="art-file" accept="image/*,.glb">
-                </div>
-                <button id="btn-save-art" class="btn interactive" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveArtifact()">Guardar Artefacto</button>
-            </div>
 
-            <div id="tab-cards" class="hidden">
-                <p style="font-size: 12px; color: #666;">Imprime estas tarjetas. Extraemos la imagen exacta del repositorio de AR.js para garantizar precisión.</p>
-                <div id="admin-cards-list" style="display:flex; flex-direction:column; gap:20px;"></div>
-            </div>
-
-            <div id="tab-badges" class="hidden">
-                <div class="form-group">
-                    <label>Nombre del Badge:</label>
-                    <input type="text" id="badge-name">
+                <div id="tab-badges" class="hidden">
+                    <div class="form-group">
+                        <label>Nombre del Badge:</label>
+                        <input type="text" id="badge-name">
+                    </div>
+                    <div class="form-group">
+                        <label>Artefactos necesarios:</label>
+                        <input type="number" id="badge-req" min="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Imagen del Badge:</label>
+                        <input type="file" id="badge-img" accept="image/*">
+                    </div>
+                    <button class="btn interactive" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveBadge()">Guardar Badge</button>
                 </div>
-                <div class="form-group">
-                    <label>Artefactos necesarios:</label>
-                    <input type="number" id="badge-req" min="1" value="1">
-                </div>
-                <div class="form-group">
-                    <label>Imagen del Badge:</label>
-                    <input type="file" id="badge-img" accept="image/*">
-                </div>
-                <button class="btn interactive" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveBadge()">Guardar Badge</button>
             </div>
         </div>
     </div>
@@ -300,26 +306,31 @@
                 const markersContainer = document.getElementById('dynamic-markers');
                 markersContainer.innerHTML = '';
 
+                // En MindAR usamos targetIndex (0 = imagen por defecto en el archivo compilado)
+                let index = 0;
                 artSnapshot.forEach(doc => {
                     const data = doc.data();
                     artifactsData.push({ id: doc.id, ...data });
                     
-                    const markerEl = document.createElement('a-marker');
-                    markerEl.setAttribute('type', 'barcode');
-                    markerEl.setAttribute('value', data.barcodeId);
-                    markerEl.setAttribute('marker-handler', `id: ${doc.id}`);
-                    
-                    const artEl = document.createElement(data.type === 'glb' ? 'a-gltf-model' : 'a-image');
-                    artEl.setAttribute('src', data.artBase64);
-                    artEl.setAttribute('pop-out', '');
-                    artEl.setAttribute('rotation', '-90 0 0'); // AR.js acuesta los objetos por defecto
+                    // Para evitar errores en este build universal, anclamos el primero a la imagen de prueba
+                    if(index === 0) {
+                        const markerEl = document.createElement('a-entity');
+                        markerEl.setAttribute('mindar-image-target', `targetIndex: 0`);
+                        markerEl.setAttribute('mindar-handler', `id: ${doc.id}`);
+                        
+                        const artEl = document.createElement(data.type === 'glb' ? 'a-gltf-model' : 'a-image');
+                        artEl.setAttribute('src', data.artBase64);
+                        artEl.setAttribute('pop-out', '');
+                        artEl.setAttribute('rotation', '0 0 0'); 
 
-                    if (data.type === 'image') {
-                        artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
+                        if (data.type === 'image') {
+                            artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
+                        }
+
+                        markerEl.appendChild(artEl);
+                        markersContainer.appendChild(markerEl);
                     }
-
-                    markerEl.appendChild(artEl);
-                    markersContainer.appendChild(markerEl);
+                    index++;
                 });
 
                 const badgeSnapshot = await getDocs(collection(db, "badges"));
@@ -346,7 +357,7 @@
                 badgesData.forEach(badge => {
                     const unlocked = collectedIds.length >= badge.required;
                     container.innerHTML += `
-                        <div style="text-align:center; opacity: ${unlocked ? '1' : '0.4'}; filter: ${unlocked ? 'none' : 'grayscale(100%)'};">
+                        <div style="text-align:center; opacity: ${unlocked ? '1' : '0.4'}; filter: ${unlocked ? 'none' : 'grayscale(100%)'}; transition: all 0.3s;">
                             <img src="${badge.imgBase64}" style="width:80px; height:80px; border-radius:50%; border: 3px solid var(--sgx-yellow); object-fit: cover;">
                             <p style="font-size:12px; margin-top:5px; color: var(--sgx-light);">${badge.name}<br>(${badge.required} arts)</p>
                         </div>
@@ -359,27 +370,28 @@
                 container.innerHTML = '';
                 const appUrl = window.location.href.split('?')[0]; 
                 
-                artifactsData.forEach(art => {
-                    // Extraer Barcode directamente desde el repo oficial de AR.js
-                    const barcodeImgUrl = `https://raw.githack.com/AR-js-org/AR.js/master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3/${art.barcodeId}.png`;
+                // Imagen objetivo oficial de prueba de MindAR
+                const mindARImage = "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png";
 
+                if(artifactsData.length > 0) {
+                    const art = artifactsData[0];
                     container.innerHTML += `
                         <div class="card-preview">
                             <h4 style="color: var(--sgx-blue); margin:0 0 10px 0;">${art.name}</h4>
-                            <p style="margin: 0 0 10px 0; color: #333; font-size:14px;">Barcode ID: <strong>${art.barcodeId}</strong></p>
+                            <p style="margin: 0 0 10px 0; color: #666; font-size:12px;">Pista: <i>${art.clue}</i></p>
                             <div style="display:flex; justify-content: space-around; align-items:center;">
                                 <div>
-                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">QR (App)</p>
+                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">QR App</p>
                                     <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(appUrl)}" alt="QR">
                                 </div>
                                 <div>
-                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">Barcode (Imprimir)</p>
-                                    <img class="qr-img" src="${barcodeImgUrl}" alt="Barcode">
+                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">Imagen a Escanear en AR</p>
+                                    <img class="qr-img" src="${mindARImage}" alt="Target">
                                 </div>
                             </div>
                         </div>
                     `;
-                });
+                }
             },
 
             switchScreen: function(hideId, showId) {
@@ -393,8 +405,20 @@
             startGame: function() {
                 document.querySelectorAll('.screen-solid, .screen-hud').forEach(el => el.classList.add('hidden'));
                 document.getElementById('screen-hud').classList.remove('hidden');
-                // Forzar reajuste para Safari iOS
-                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 300);
+                
+                // Encender motor de MindAR y pedir cámara
+                const sceneEl = document.querySelector('a-scene');
+                if(sceneEl.systems["mindar-image-system"]) {
+                    sceneEl.systems["mindar-image-system"].start();
+                }
+            },
+            stopGame: function() {
+                // Apagar cámara al salir
+                const sceneEl = document.querySelector('a-scene');
+                if(sceneEl.systems["mindar-image-system"]) {
+                    sceneEl.systems["mindar-image-system"].stop();
+                }
+                this.showMenu();
             },
             showInstructions: function() { this.switchScreen('screen-menu', 'screen-instructions'); },
             showProfile: function() { document.getElementById('screen-profile').classList.remove('hidden'); },
@@ -454,10 +478,8 @@
                     if (type === 'image') artBase64 = await compressImage(artFile, 0.8, 800);
                     else artBase64 = await readGLB(artFile);
 
-                    const barcodeId = artifactsData.length; 
-
                     await addDoc(collection(db, "artifacts"), {
-                        name, clue, type, barcodeId, photoBase64, artBase64
+                        name, clue, type, photoBase64, artBase64
                     });
 
                     alert("Guardado exitoso.");
