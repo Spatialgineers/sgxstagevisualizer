@@ -3,25 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SGX.Stage | Kinetic Visualizer v3.4</title>
-    <!-- Tailwind CSS -->
+    <title>SGX.Stage | Kinetic Visualizer v3.9 Pro</title>
+    <!-- Frameworks UI y Tipografía -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <!-- Three.js & Loaders -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    
+    <!-- Three.js Core & Pro Loaders (Versión 136 para estabilidad KTX2/DRACO) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/loaders/DRACOLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/loaders/KTX2Loader.js"></script>
 
     <style>
         body { margin: 0; overflow: hidden; background-color: #010101; font-family: 'Rajdhani', sans-serif; color: #ffffff; user-select: none; }
         #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        .scanlines { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02)); background-size: 100% 4px, 3px 100%; z-index: 5; pointer-events: none; opacity: 0.3; }
+        .scanlines { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02)); background-size: 100% 4px, 3px 100%; z-index: 5; pointer-events: none; opacity: 0.3; }
         .ui-layer { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; }
         .interactive-element { pointer-events: auto; }
         .font-tech { font-family: 'Share Tech Mono', monospace; }
         .text-sgx-yellow { color: #FDCC0D; }
         .bg-sgx-yellow { background-color: #FDCC0D; }
-        .glass-panel { background: rgba(5, 12, 30, 0.95); backdrop-filter: blur(30px); border: 1px solid rgba(253, 204, 13, 0.2); box-shadow: 0 0 50px rgba(0, 0, 0, 0.9); }
+        .glass-panel { background: rgba(5, 15, 35, 0.95); backdrop-filter: blur(40px); border: 1px solid rgba(253, 204, 13, 0.2); box-shadow: 0 0 50px rgba(0, 0, 0, 0.9); }
         
         .glitch-text { position: relative; }
         .glitch-text::before, .glitch-text::after { content: attr(data-text); position: absolute; top: 0; left: 0; opacity: 0.8; }
@@ -35,12 +37,12 @@
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(50, 82, 123, 0.5); border-radius: 2px; }
         
         .ui-transition { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease; }
-        .ui-hidden { opacity: 0; transform: scale(0.98) translateY(15px); pointer-events: none; }
+        .ui-hidden { opacity: 0; transform: scale(0.95) translateY(15px); pointer-events: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #FDCC0D; border-radius: 10px; }
         
-        .color-input { -webkit-appearance: none; border: none; width: 100%; height: 24px; border-radius: 4px; cursor: pointer; background: transparent; }
-        .color-input::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; }
+        .color-input { -webkit-appearance: none; border: none; width: 100%; height: 24px; border-radius: 6px; cursor: pointer; background: transparent; }
+        .color-input::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; }
 
         .toggle-btn { background: rgba(255,255,255,0.05); color: #777; border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s; cursor: pointer; text-align: center; }
         .toggle-btn.active { background: #FDCC0D !important; color: #000 !important; border-color: #FDCC0D !important; box-shadow: 0 0 15px rgba(253, 204, 13, 0.4); }
@@ -51,20 +53,20 @@
     <div id="ui-container" class="ui-transition ui-layer flex flex-col justify-between p-4 sm:p-8 pointer-events-none">
         <!-- Header -->
         <div class="flex justify-between items-start">
-            <div class="glass-panel p-4 rounded-br-3xl border-l-4 border-l-sgx-yellow">
+            <div class="glass-panel p-5 rounded-br-3xl border-l-4 border-l-sgx-yellow shadow-2xl">
                 <h1 class="text-3xl sm:text-5xl font-bold tracking-[0.2em] text-sgx-yellow glitch-text" data-text="SGX.STAGE">SGX.STAGE</h1>
-                <p class="font-tech text-[10px] text-gray-400 mt-1 uppercase tracking-[0.3em]">Module: Kinetic_Engine_v3.4</p>
+                <p class="font-tech text-[10px] text-gray-400 mt-1 uppercase tracking-[0.4em]">Module: Kinetic_Engine_v3.9_Max</p>
             </div>
-            <div class="text-right glass-panel px-4 py-2 rounded-bl-3xl border-r-4 border-r-sgx-yellow hidden sm:block">
-                <p class="font-tech text-[10px] text-sgx-yellow uppercase tracking-tighter">Caribbean_Computing_Node</p>
-                <p class="font-tech text-[10px] text-white tracking-widest italic">CLK: <span id="clock-display">00:00:00</span></p>
+            <div class="text-right glass-panel px-5 py-3 rounded-bl-3xl border-r-4 border-r-sgx-yellow hidden sm:block shadow-2xl">
+                <p class="font-tech text-[10px] text-sgx-yellow uppercase tracking-widest italic">Caribbean_Engineering_Node</p>
+                <p class="font-tech text-[10px] text-white tracking-widest">CLK: <span id="clock-display">00:00:00</span></p>
             </div>
         </div>
 
-        <!-- Panel de Control Principal -->
-        <div class="absolute right-4 sm:right-8 top-24 sm:top-32 w-[calc(100vw-2rem)] sm:w-80 max-h-[75vh] overflow-y-auto glass-panel p-6 rounded-2xl flex flex-col space-y-6 interactive-element shadow-2xl custom-scrollbar" id="control-panel">
+        <!-- Panel de Control Principal (HUD) -->
+        <div class="absolute right-4 sm:right-8 top-24 sm:top-36 w-[calc(100vw-2rem)] sm:w-80 max-h-[75vh] overflow-y-auto glass-panel p-6 rounded-2xl flex flex-col space-y-6 interactive-element shadow-2xl custom-scrollbar pointer-events-auto" id="control-panel">
             <div class="flex items-center justify-between border-b border-sgx-yellow/10 pb-4">
-                <h2 class="text-sgx-yellow font-bold tracking-widest text-xs uppercase italic font-tech">System Overrides</h2>
+                <h2 class="text-sgx-yellow font-bold tracking-widest text-xs uppercase italic font-tech underline underline-offset-8 decoration-sgx-yellow/20">System Overrides</h2>
                 <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]"></div>
             </div>
             
@@ -74,11 +76,11 @@
 
             <!-- Media Injection -->
             <div class="space-y-3 pt-2 border-t border-sgx-yellow/10">
-                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 block text-center italic">Media Injection</label>
+                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 block text-center italic text-sgx-yellow/80">Media Injection</label>
                 <div class="grid grid-cols-3 gap-1">
                     <button id="upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all">GLB</button>
                     <button id="bg-upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all">BG IMG</button>
-                    <button id="tex-upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all" title="Triplanar Texture Wrapper">TEX MASK</button>
+                    <button id="tex-upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all" title="Envelopes model in 360">TEX MASK</button>
                 </div>
                 <div class="space-y-1 mt-2">
                     <label class="text-[9px] text-gray-400 font-tech flex justify-between uppercase"><span>Texture Coverage (Tiling)</span><span id="val-tex-scale" class="text-white">0.1</span></label>
@@ -89,31 +91,31 @@
                 <input type="file" id="tex-upload" accept="image/*" class="hidden">
             </div>
 
-            <!-- Physics Engine (Individual Multi-Axis Control) -->
+            <!-- Physics Logic -->
             <div class="space-y-4 pt-2 border-t border-sgx-yellow/10">
-                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 flex justify-between">
-                    <span>Kinetic Logic</span>
+                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 flex justify-between italic text-sgx-yellow/80">
+                    <span>Physics Logic</span>
                     <button id="erratic-btn" class="text-white hover:text-sgx-yellow transition-colors font-tech text-[8px]">[ MAX ERRATIC ]</button>
                 </label>
                 <div class="grid grid-cols-4 gap-1">
                     <button class="axis-btn toggle-btn text-[8px] py-2 rounded" data-axis="x">ROT_X</button>
                     <button class="axis-btn toggle-btn active text-[8px] py-2 rounded" data-axis="y">ROT_Y</button>
                     <button class="axis-btn toggle-btn text-[8px] py-2 rounded" data-axis="z">ROT_Z</button>
-                    <button id="rotate-toggle" class="toggle-btn active text-[8px] py-2 rounded italic font-bold">PWR</button>
+                    <button id="rotate-toggle" class="toggle-btn active text-[8px] py-2 rounded font-bold italic">POWER</button>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Global Rotation Speed</span><span id="val-speed" class="text-white">0.01</span></label>
+                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Global Velocity</span><span id="val-speed" class="text-white">0.01</span></label>
                     <input type="range" id="ctrl-speed" min="0" max="0.3" step="0.001" value="0.01" class="w-full">
                 </div>
             </div>
 
-            <!-- Morphology & Global Scale -->
+            <!-- Morphology Matrix -->
             <div class="space-y-3 pt-2 border-t border-sgx-yellow/10">
-                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2">Morphology Matrix</label>
+                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 italic text-sgx-yellow/80">Morphology Matrix</label>
                 <div class="grid grid-cols-3 gap-1">
                     <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="reactor">REACTOR</button>
                     <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="gear">CHAMFER_GEAR</button>
-                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="triangle">INFINITE_TRI</button>
+                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="triangle">INFINITY_TRI</button>
                     <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="mobius">LEMNISCATA</button>
                     <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="knot">NEXUS_KNOT</button>
                     <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="pillar">DATA_PILLAR</button>
@@ -124,7 +126,7 @@
                 </div>
             </div>
 
-            <!-- Shader Parameters -->
+            <!-- Geometry Shaders -->
             <div class="space-y-4 pt-2 border-t border-sgx-yellow/10">
                 <div class="space-y-1">
                     <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Blueprint / Density</span><span id="val-density" class="text-white">1.0</span></label>
@@ -141,8 +143,8 @@
             </div>
 
             <!-- Chroma Mapping -->
-            <div class="pt-2 border-t border-sgx-yellow/10">
-                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 mb-3 block text-center italic underline underline-offset-4 decoration-sgx-yellow/30">Chroma Matrix Mapping</label>
+            <div class="pt-2 border-t border-sgx-yellow/10 text-center">
+                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest mb-3 block italic underline underline-offset-4 decoration-sgx-yellow/30">Chroma Matrix Mapping</label>
                 <div class="grid grid-cols-3 gap-3 px-2">
                     <div class="text-center"><label class="text-[7px] text-gray-500 uppercase mb-1 block">Primary</label><input type="color" id="color-1" value="#FDCC0D" class="color-input"></div>
                     <div class="text-center"><label class="text-[7px] text-gray-500 uppercase mb-1 block">Core</label><input type="color" id="color-2" value="#32527B" class="color-input"></div>
@@ -164,15 +166,15 @@
             </div>
         </div>
 
-        <!-- Footer -->
+        <!-- Footer Stats -->
         <div class="flex justify-between items-end font-tech text-[10px] text-gray-500 pb-16 sm:pb-0">
-            <div class="glass-panel px-4 py-2 rounded-tr-2xl border-b-2 border-b-sgx-yellow">
-                <p>OUTPUT: <span id="fps-counter" class="text-white">60</span> FPS // <span id="status-text" class="text-sgx-copper uppercase font-bold italic animate-pulse">Standby</span></p>
-                <p class="opacity-50 text-[8px]">ACTIVE_MODE: REACTIVE_SHADERS_v3</p>
+            <div class="glass-panel px-4 py-2 rounded-tr-2xl border-b-2 border-b-sgx-yellow shadow-xl">
+                <p>OUTPUT: <span id="fps-counter" class="text-white">60</span> FPS // <span id="status-text" class="text-sgx-copper uppercase font-bold italic animate-pulse tracking-widest">Standby</span></p>
+                <p class="opacity-50 text-[8px]">SGX_ENGINE_V3 // TRIPLANAR_ACTIVE</p>
             </div>
             <div class="text-right hidden sm:block opacity-30 leading-tight uppercase font-tech tracking-widest">
                 <p>Spatialgineers LLC</p>
-                <p>Building Realities</p>
+                <p>Engineering Realities</p>
             </div>
         </div>
     </div>
@@ -185,162 +187,184 @@
     <div class="scanlines"></div>
     <div id="canvas-container"></div>
 
-    <!-- Shaders GLSL -->
-    <script type="x-shader/x-vertex" id="core-vertex-shader">
-        uniform float uTime;
-        uniform float uAudioData;
-        uniform float uNoiseAmpBase;
-        uniform float uAudioSens;
-        uniform vec2 uMouse;
-        uniform float uClickExplode; // Interacción extra
-        varying vec2 vUv;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
+    <script>
+        // Los Shaders GLSL ahora están inyectados directamente como variables
+        // Esto elimina cualquier error de 'textContent' nulo por falta de sincronización del DOM
+        const vertexShaderGLSL = `
+            uniform float uTime;
+            uniform float uAudioData;
+            uniform float uNoiseAmpBase;
+            uniform float uAudioSens;
+            uniform vec2 uMouse;
+            uniform float uClickExplode;
+            varying vec2 vUv;
+            varying vec3 vNormal;
+            varying vec3 vPosition;
 
-        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-        float snoise(vec3 v) {
-            const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-            vec3 i = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
-            vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
-            vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy;
-            i = mod289(i);
-            vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-            float n_ = 0.142857142857; vec3 ns = n_ * D.wyz - D.xzx;
-            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-            vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
-            vec4 x = x_ * ns.x + ns.yyyy; vec4 y = y_ * ns.x + ns.yyyy;
-            vec4 h = 1.0 - abs(x) - abs(y);
-            vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
-            vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
-            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-            vec3 p0 = vec3(a0.xy, h.x); vec3 p1 = vec3(a0.zw, h.y); vec3 p2 = vec3(a1.xy, h.z); vec3 p3 = vec3(a1.zw, h.w);
-            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m;
-            return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-        }
-
-        void main() {
-            vUv = uv;
-            // Interpolar normales para un sombreado más suave
-            vNormal = normalize(normalMatrix * normal);
-            // Hacer la frecuencia de ruido menor para transiciones más suaves
-            float noiseFreq = 0.3 + (uMouse.x * 0.2);
-            float noiseAmp = uNoiseAmpBase + (uAudioData * uAudioSens);
-            vec3 noisePos = vec3(position.x * noiseFreq + uTime * 0.1, position.y * noiseFreq + uTime * 0.1, position.z * noiseFreq);
-            float noiseVal = snoise(noisePos) * noiseAmp;
-            
-            // Añadir el efecto de explosión al hacer click
-            float explodeEffect = snoise(position * 2.0 + uTime) * uClickExplode;
-            
-            vec3 newPosition = position + normal * (noiseVal + explodeEffect);
-            vPosition = newPosition;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
-        }
-    </script>
-
-    <script type="x-shader/x-fragment" id="core-fragment-shader">
-        uniform float uTime;
-        uniform vec3 uColor1;
-        uniform vec3 uColor2;
-        uniform vec3 uColor3;
-        uniform float uAudioData;
-        uniform float uDensity;
-        uniform sampler2D uTexMask;
-        uniform bool uHasTex;
-        uniform float uTexScale;
-        varying vec2 vUv;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-
-        // Función de Ruido Simplex para mezcla de colores global
-        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-        float snoise(vec3 v) {
-            const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-            vec3 i = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
-            vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
-            vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy;
-            i = mod289(i);
-            vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-            float n_ = 0.142857142857; vec3 ns = n_ * D.wyz - D.xzx;
-            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-            vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
-            vec4 x = x_ * ns.x + ns.yyyy; vec4 y = y_ * ns.x + ns.yyyy;
-            vec4 h = 1.0 - abs(x) - abs(y);
-            vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
-            vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
-            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-            vec3 p0 = vec3(a0.xy, h.x); vec3 p1 = vec3(a0.zw, h.y); vec3 p2 = vec3(a1.xy, h.z); vec3 p3 = vec3(a1.zw, h.w);
-            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m;
-            return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-        }
-
-        void main() {
-            // Mezcla de colores global basada en ruido Simplex 3D para cobertura total y suave
-            // Ajustar la escala de posición para que el ruido cubra todo el objeto de manera más difusa
-            float noiseVal1 = snoise(vPosition * 0.05 + uTime * 0.1) * 0.5 + 0.5;
-            float noiseVal2 = snoise(vPosition * 0.08 - uTime * 0.15) * 0.5 + 0.5;
-            
-            // Usar smoothstep para transiciones de color más suaves
-            vec3 color = mix(uColor1, uColor2, smoothstep(0.2, 0.8, noiseVal1));
-            
-            // Integrar el color de acento de manera más global, modulado por el audio y la posición
-            float accentMix = smoothstep(0.3, 0.9, noiseVal2) * (0.3 + uAudioData * 0.7);
-            color = mix(color, uColor3, accentMix);
-            
-            if(uHasTex) {
-                // TRIPLANAR MAPPING: Proyecta la textura desde los 3 ejes (X, Y, Z) ignorando UVs rotos
-                vec3 blending = abs(vNormal);
-                blending /= (blending.x + blending.y + blending.z);
-                
-                vec2 xUV = vPosition.yz * uTexScale;
-                vec2 yUV = vPosition.xz * uTexScale;
-                vec2 zUV = vPosition.xy * uTexScale;
-                
-                vec4 xTex = texture2D(uTexMask, xUV);
-                vec4 yTex = texture2D(uTexMask, yUV);
-                vec4 zTex = texture2D(uTexMask, zUV);
-                
-                vec4 triplanarTex = xTex * blending.x + yTex * blending.y + zTex * blending.z;
-                color = mix(color, triplanarTex.rgb, 0.7);
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+            float snoise(vec3 v) {
+                const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+                vec3 i = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
+                vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
+                vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy;
+                i = mod289(i);
+                vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+                float n_ = 0.142857142857; vec3 ns = n_ * D.wyz - D.xzx;
+                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+                vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
+                vec4 x = x_ * ns.x + ns.yyyy; vec4 y = y_ * ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+                vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
+                vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+                vec3 p0 = vec3(a0.xy, h.x); vec3 p1 = vec3(a0.zw, h.y); vec3 p2 = vec3(a1.xy, h.z); vec3 p3 = vec3(a1.zw, h.w);
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+                p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m;
+                return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
             }
 
-            vec3 viewDir = normalize(cameraPosition - vPosition);
-            float fresnel = pow(1.0 - clamp(dot(viewDir, vNormal), 0.0, 1.0), 3.0);
-            vec3 finalColor = color + (fresnel * uColor1 * (1.5 + uAudioData * 4.0));
-            float alpha = mix(0.4, 1.0, uDensity);
-            gl_FragColor = vec4(finalColor, alpha);
-        }
-    </script>
+            void main() {
+                vUv = uv;
+                vNormal = normalize(normalMatrix * normal);
+                float noiseFreq = 0.6 + (uMouse.x * 0.2);
+                float noiseAmp = uNoiseAmpBase + (uAudioData * uAudioSens);
+                vec3 noisePos = vec3(position.x * noiseFreq + uTime * 0.2, position.y * noiseFreq + uTime * 0.2, position.z * noiseFreq);
+                float noiseVal = snoise(noisePos) * noiseAmp;
+                
+                float explodeEffect = snoise(position * 2.5 + uTime) * uClickExplode;
+                
+                vec3 newPosition = position + normal * (noiseVal + explodeEffect);
+                vPosition = newPosition;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+            }
+        `;
 
-    <script>
-        let scene, camera, renderer, activeGroup, coreWireframe, particlesMesh, gridHelper, uniforms, reactiveMaterial;
+        const fragmentShaderGLSL = `
+            uniform float uTime;
+            uniform vec3 uColor1;
+            uniform vec3 uColor2;
+            uniform vec3 uColor3;
+            uniform float uAudioData;
+            uniform float uDensity;
+            uniform sampler2D uTexMask;
+            uniform bool uHasTex;
+            uniform float uTexScale;
+            varying vec2 vUv;
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+            float snoise(vec3 v) {
+                const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+                vec3 i = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
+                vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
+                vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy;
+                i = mod289(i);
+                vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+                float n_ = 0.142857142857; vec3 ns = n_ * D.wyz - D.xzx;
+                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+                vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
+                vec4 x = x_ * ns.x + ns.yyyy; vec4 y = y_ * ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+                vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
+                vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+                vec3 p0 = vec3(a0.xy, h.x); vec3 p1 = vec3(a0.zw, h.y); vec3 p2 = vec3(a1.xy, h.z); vec3 p3 = vec3(a1.zw, h.w);
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+                p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m;
+                return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+            }
+
+            void main() {
+                // MEZCLA DE COLOR GLOBAL basada en posición espacial
+                float noiseVal = snoise(vPosition * 0.12 + uTime * 0.2) * 0.5 + 0.5;
+                vec3 color = mix(uColor1, uColor2, smoothstep(0.1, 0.9, noiseVal));
+                color = mix(color, uColor3, cos(vPosition.y * 0.5 - uTime * 0.4) * uAudioData);
+                
+                if(uHasTex) {
+                    // TRIPLANAR MAPPING PRO: Cobertura total 360 grados
+                    vec3 blending = abs(vNormal);
+                    blending /= (blending.x + blending.y + blending.z);
+                    
+                    vec2 xUV = vPosition.yz * uTexScale;
+                    vec2 yUV = vPosition.xz * uTexScale;
+                    vec2 zUV = vPosition.xy * uTexScale;
+                    
+                    vec4 xTex = texture2D(uTexMask, xUV);
+                    vec4 yTex = texture2D(uTexMask, yUV);
+                    vec4 zTex = texture2D(uTexMask, zUV);
+                    
+                    vec4 triplanarTex = xTex * blending.x + yTex * blending.y + zTex * blending.z;
+                    color = mix(color, triplanarTex.rgb, 0.7);
+                }
+
+                vec3 viewDir = normalize(cameraPosition - vPosition);
+                float fresnel = pow(1.0 - clamp(dot(viewDir, vNormal), 0.0, 1.0), 3.0);
+                vec3 finalColor = color + (fresnel * uColor1 * (1.5 + uAudioData * 4.0));
+                float alpha = mix(0.4, 1.0, uDensity);
+                gl_FragColor = vec4(finalColor, alpha);
+            }
+        `;
+
+        let scene, camera, renderer, tiltGroup, activeGroup, coreWireframe, particlesMesh, gridHelper, uniforms, reactiveMaterial;
         let audioContext, analyser, dataArray, isAudioInitialized = false;
         let mouse = new THREE.Vector2(), targetMouse = new THREE.Vector2();
         let windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
         let clickExplodeTarget = 0.0;
         
-        // Config Physics
+        let globalGLTFLoader;
+        
         let isRotating = true;
         let rotationAxis = { x: false, y: true, z: false };
         let rotationSpeed = 0.01;
         let assetScale = 1.0;
         let currentMorphology = 'reactor';
-        
-        // Lemniscata animation state
         let lemniscataAnimParam = 0;
 
         const clock = new THREE.Clock();
         const el = (id) => document.getElementById(id);
         const safeSetText = (id, text) => { const item = el(id); if(item) item.innerText = text; };
+
+        // Función robusta para generar geometría paramétrica nativamente
+        function createParametricGeometry(func, slices, stacks) {
+            const vertices = [];
+            const uvs = [];
+            const indices = [];
+            const p0 = new THREE.Vector3();
+            for (let i = 0; i <= stacks; i++) {
+                const v = i / stacks;
+                for (let j = 0; j <= slices; j++) {
+                    const u = j / slices;
+                    func(u, v, p0);
+                    vertices.push(p0.x, p0.y, p0.z);
+                    uvs.push(u, v);
+                }
+            }
+            for (let i = 0; i < stacks; i++) {
+                for (let j = 0; j < slices; j++) {
+                    const a = i * (slices + 1) + (j + 1);
+                    const b = i * (slices + 1) + j;
+                    const c = (i + 1) * (slices + 1) + j;
+                    const d = (i + 1) * (slices + 1) + (j + 1);
+                    indices.push(a, b, d);
+                    indices.push(b, c, d);
+                }
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+            return geo;
+        }
 
         window.onload = () => { init(); animate(); setupEventListeners(); };
 
@@ -351,8 +375,8 @@
             scene = new THREE.Scene();
             scene.fog = new THREE.FogExp2(0x010101, 0.005);
             
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 15000);
-            camera.position.set(0, 5, 55);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 20000);
+            camera.position.set(0, 5, 60);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -360,6 +384,26 @@
             renderer.toneMapping = THREE.ReinhardToneMapping;
             renderer.toneMappingExposure = 1.2;
             container.appendChild(renderer.domElement);
+
+            // INSTANCIACIÓN ROBUSTA DE CARGADORES PRO
+            globalGLTFLoader = new THREE.GLTFLoader();
+            
+            try {
+                if (typeof THREE.DRACOLoader !== 'undefined') {
+                    const dracoLoader = new THREE.DRACOLoader();
+                    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/libs/draco/');
+                    globalGLTFLoader.setDRACOLoader(dracoLoader);
+                }
+            } catch(e) { console.warn("DRACO init failed:", e); }
+            
+            try {
+                if (typeof THREE.KTX2Loader !== 'undefined') {
+                    const ktx2Loader = new THREE.KTX2Loader();
+                    ktx2Loader.setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/libs/basis/');
+                    ktx2Loader.detectSupport(renderer);
+                    globalGLTFLoader.setKTX2Loader(ktx2Loader);
+                }
+            } catch(e) { console.warn("KTX2 init failed:", e); }
 
             uniforms = {
                 uTime: { value: 0.0 }, uAudioData: { value: 0.0 }, 
@@ -373,20 +417,24 @@
                 uClickExplode: { value: 0.0 }
             };
 
+            // Material utilizando los strings directos en JS
             reactiveMaterial = new THREE.ShaderMaterial({
-                vertexShader: el('core-vertex-shader').textContent,
-                fragmentShader: el('core-fragment-shader').textContent,
+                vertexShader: vertexShaderGLSL,
+                fragmentShader: fragmentShaderGLSL,
                 uniforms: uniforms, transparent: true, side: THREE.DoubleSide
             });
 
+            tiltGroup = new THREE.Group();
+            scene.add(tiltGroup);
+
             activeGroup = new THREE.Group();
-            scene.add(activeGroup);
+            tiltGroup.add(activeGroup);
 
             changeMorphology('reactor');
             createParticles(5000, 0.05);
 
-            gridHelper = new THREE.GridHelper(1000, 100, 0x32527B, 0x0a0a0a);
-            gridHelper.position.y = -40;
+            gridHelper = new THREE.GridHelper(1000, 100, 0x32527B, 0x050505);
+            gridHelper.position.y = -50;
             gridHelper.material.transparent = true;
             gridHelper.material.opacity = 0.2;
             scene.add(gridHelper);
@@ -396,7 +444,7 @@
             if(particlesMesh) { scene.remove(particlesMesh); particlesMesh.geometry.dispose(); particlesMesh.material.dispose(); }
             const geo = new THREE.BufferGeometry();
             const pos = new Float32Array(count * 3);
-            for(let i = 0; i < count * 3; i++) { pos[i] = (Math.random() - 0.5) * 600; }
+            for(let i = 0; i < count * 3; i++) { pos[i] = (Math.random() - 0.5) * 1000; }
             geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
             particlesMesh = new THREE.Points(geo, new THREE.PointsMaterial({ 
                 size: size, color: uniforms.uColor1.value, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending 
@@ -406,9 +454,7 @@
 
         async function initAudio() {
             try {
-                if (audioContext && audioContext.state === 'suspended') {
-                    await audioContext.resume();
-                }
+                if (audioContext && audioContext.state === 'suspended') await audioContext.resume();
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const source = audioContext.createMediaStreamSource(stream);
@@ -421,46 +467,21 @@
                 safeSetText('status-text', 'Live Synchronized');
             } catch (err) { safeSetText('status-text', 'Access Denied'); }
         }
-        
-        function updateLemniscataGeometry(timeParam) {
-            // Eliminar la malla de lemniscata anterior
-            if (activeGroup.children.length > 0) {
-                 // Si tenemos wireframe, es el segundo hijo
-                 if(activeGroup.children.length > 1) {
-                     activeGroup.children[0].geometry.dispose();
-                     activeGroup.children[1].geometry.dispose();
-                 } else {
-                     activeGroup.children[0].geometry.dispose();
-                 }
-            }
 
+        function updateLemniscataGeometry(timeParam) {
             const lemniscateFunc = (u, v, target) => {
                 u *= Math.PI * 2;
-                const t = u;
-                const scale = 15.0;
-                // Ecuación paramétrica de la lemniscata de Bernoulli en 3D
-                const x = (scale * Math.cos(t)) / (1.0 + Math.pow(Math.sin(t), 2.0));
-                const y = (scale * Math.sin(t) * Math.cos(t)) / (1.0 + Math.pow(Math.sin(t), 2.0));
-                
-                // Tubing logic con animación basada en timeParam
+                const scale = 20.0;
+                const x = (scale * Math.cos(u)) / (1.0 + Math.pow(Math.sin(u), 2.0));
+                const y = (scale * Math.sin(u) * Math.cos(u)) / (1.0 + Math.pow(Math.sin(u), 2.0));
                 const phi = v * Math.PI * 2;
-                const r = 2.0 + Math.sin(u * 4.0 + timeParam * 2.0) * 0.5; // Tubo animado que pulsa
-                target.set(x + r * Math.cos(phi), y + r * Math.sin(phi), r * Math.sin(phi + u) + Math.sin(t + timeParam)*3.0); // Z animada
+                const r = 3.0 + Math.sin(u * 2.0 + timeParam) * 1.0;
+                target.set(x + r * Math.cos(phi), y + r * Math.sin(phi), r * Math.sin(phi + u) + Math.sin(u + timeParam)*5.0);
             };
-            
-            const newGeo = new THREE.ParametricBufferGeometry(lemniscateFunc, 128, 32);
-            
-            // Suavizar las normales después de generar la geometría paramétrica
-            newGeo.computeVertexNormals();
-
+            const newGeo = createParametricGeometry(lemniscateFunc, 128, 32);
             if (activeGroup.children.length > 0) {
+                activeGroup.children[0].geometry.dispose();
                 activeGroup.children[0].geometry = newGeo;
-                if(coreWireframe) {
-                    const wireGeo = newGeo.clone();
-                    // Escalar ligeramente el wireframe
-                    wireGeo.scale(1.02, 1.02, 1.02);
-                    activeGroup.children[1].geometry = wireGeo;
-                }
             }
         }
 
@@ -469,18 +490,13 @@
             while(activeGroup.children.length > 0) activeGroup.remove(activeGroup.children[0]);
             let newGeo, newWireGeo;
             switch(type) {
-                case 'reactor': 
-                    // Aumentado el detalle (128) para que sea más smooth
-                    newGeo = new THREE.IcosahedronGeometry(10, 128); 
-                    newWireGeo = new THREE.IcosahedronGeometry(10.2, 16); 
-                    break;
+                case 'reactor': newGeo = new THREE.IcosahedronGeometry(12, 128); newWireGeo = new THREE.IcosahedronGeometry(12.2, 16); break;
                 case 'gear':
                     const gearShape = new THREE.Shape();
-                    const teeth = 12, inner = 7, outer = 11;
+                    const teeth = 12, inner = 9, outer = 13;
                     const step = Math.PI * 2 / teeth;
                     for (let i = 0; i < teeth; i++) {
                         const a = i * step;
-                        // Diseño trapezoidal (chamfered)
                         if (i === 0) gearShape.moveTo(Math.cos(a - 0.1)*inner, Math.sin(a - 0.1)*inner);
                         gearShape.lineTo(Math.cos(a + 0.1)*inner, Math.sin(a + 0.1)*inner);
                         gearShape.lineTo(Math.cos(a + 0.2)*outer, Math.sin(a + 0.2)*outer);
@@ -488,52 +504,24 @@
                         gearShape.lineTo(Math.cos(a + step - 0.1)*inner, Math.sin(a + step - 0.1)*inner);
                     }
                     gearShape.closePath();
-                    const hole = new THREE.Path(); hole.absarc(0, 0, 3.5, 0, Math.PI * 2, true); gearShape.holes.push(hole);
-                    // Aumentado curveSegments y bevelSegments para suavidad
-                    newGeo = new THREE.ExtrudeGeometry(gearShape, { depth: 4, bevelEnabled: true, bevelThickness: 0.8, bevelSize: 0.8, bevelSegments: 5, curveSegments: 64 });
-                    newGeo.computeVertexNormals(); // Forzar normales suaves
-                    newWireGeo = newGeo.clone(); 
-                    break;
-                case 'triangle': 
-                    // Aumentado el detalle tubular para suavidad
-                    newGeo = new THREE.TorusGeometry(12, 5, 6, 128); 
-                    newGeo.computeVertexNormals();
-                    newWireGeo = new THREE.TorusGeometry(12.3, 5.1, 6, 64); 
-                    break;
-                case 'mobius': 
-                    // La geometría se generará en el loop de animación
-                    lemniscataAnimParam = 0;
-                    const dummyGeo = new THREE.BufferGeometry();
-                    newGeo = dummyGeo;
-                    newWireGeo = dummyGeo.clone();
-                    break;
-                case 'knot': 
-                    // Aumentado detalle
-                    newGeo = new THREE.TorusKnotGeometry(8, 3, 300, 64); 
-                    newWireGeo = new THREE.TorusKnotGeometry(8.3, 3.1, 150, 32); 
-                    break;
-                case 'pillar': 
-                    // Aumentado detalle
-                    newGeo = new THREE.CylinderGeometry(7, 7, 60, 128, 64); 
-                    newWireGeo = new THREE.CylinderGeometry(7.2, 7.2, 60.2, 32, 16); 
-                    break;
+                    const hole = new THREE.Path(); hole.absarc(0, 0, 5, 0, Math.PI * 2, true); gearShape.holes.push(hole);
+                    newGeo = new THREE.ExtrudeGeometry(gearShape, { depth: 6, bevelEnabled: true, bevelThickness: 0.8, bevelSize: 0.8, bevelSegments: 5, curveSegments: 64 });
+                    newWireGeo = newGeo.clone(); break;
+                case 'triangle': newGeo = new THREE.TorusGeometry(15, 7, 6, 128); newWireGeo = new THREE.TorusGeometry(15.3, 7.1, 6, 64); break;
+                case 'mobius':
+                    const dummyGeo = new THREE.BufferGeometry(); newGeo = dummyGeo; newWireGeo = dummyGeo.clone(); break;
+                case 'knot': newGeo = new THREE.TorusKnotGeometry(10, 4, 300, 64); newWireGeo = new THREE.TorusKnotGeometry(10.3, 4.1, 150, 32); break;
+                case 'pillar': newGeo = new THREE.CylinderGeometry(10, 10, 80, 128, 64); newWireGeo = new THREE.CylinderGeometry(10.2, 10.2, 80.2, 32, 16); break;
             }
-            
             const mesh = new THREE.Mesh(newGeo, reactiveMaterial);
             activeGroup.add(mesh);
             coreWireframe = new THREE.Mesh(newWireGeo, new THREE.MeshBasicMaterial({ color: 0xFFFFFF, wireframe: true, transparent: true, opacity: 0.05 }));
             activeGroup.add(coreWireframe);
-            
-            if (type === 'mobius') {
-                updateLemniscataGeometry(0);
-            }
-            
+            if (type === 'mobius') updateLemniscataGeometry(0);
             updateGroupScale();
         }
 
-        function updateGroupScale() {
-            activeGroup.scale.set(assetScale, assetScale, assetScale);
-        }
+        function updateGroupScale() { activeGroup.scale.set(assetScale, assetScale, assetScale); }
 
         function setupEventListeners() {
             window.addEventListener('resize', () => { windowHalfX = window.innerWidth / 2; windowHalfY = window.innerHeight / 2; camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
@@ -541,16 +529,12 @@
             document.addEventListener('touchmove', (e) => { if(e.touches.length > 0) targetMouse.set((e.touches[0].clientX - windowHalfX) / windowHalfX, (e.touches[0].clientY - windowHalfY) / windowHalfY); });
 
             const ui = el('ui-container'), btn = el('toggle-ui-btn');
-            if(btn && ui) { btn.onclick = () => { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; }; }
+            if(btn && ui) btn.onclick = () => { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; };
             document.addEventListener('keydown', (e) => { if((e.key.toLowerCase() === 'h' || e.key === 'Escape') && ui && btn) { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; } });
             
-            // Interacción: Efecto de explosión al hacer clic
             document.addEventListener('click', (e) => { 
                 if (audioContext && audioContext.state === 'suspended') audioContext.resume(); 
-                // No explotar si se hace clic en la UI
-                if(!e.target.closest('.interactive-element')) {
-                    clickExplodeTarget = 5.0; // Intensidad de la explosión
-                }
+                if(!e.target.closest('.interactive-element')) clickExplodeTarget = 8.0;
             });
 
             if(el('audio-btn')) el('audio-btn').onclick = (e) => { e.stopPropagation(); if(!isAudioInitialized) initAudio(); };
@@ -565,7 +549,7 @@
             if(el('rotate-toggle')) el('rotate-toggle').onclick = (e) => { isRotating = !isRotating; e.target.classList.toggle('active', isRotating); };
             if(el('ctrl-speed')) el('ctrl-speed').oninput = (e) => { rotationSpeed = parseFloat(e.target.value); safeSetText('val-speed', e.target.value); };
             document.querySelectorAll('.axis-btn').forEach(b => b.onclick = (e) => { const axis = e.target.dataset.axis; rotationAxis[axis] = !rotationAxis[axis]; e.target.classList.toggle('active', rotationAxis[axis]); });
-            if(el('erratic-btn')) el('erratic-btn').onclick = () => { isRotating = true; el('rotate-toggle').classList.add('active'); rotationAxis = {x: true, y: true, z: true}; document.querySelectorAll('.axis-btn').forEach(b => b.classList.add('active')); rotationSpeed = 0.15; el('ctrl-speed').value = 0.15; safeSetText('val-speed', "0.15"); };
+            if(el('erratic-btn')) el('erratic-btn').onclick = () => { isRotating = true; el('rotate-toggle').classList.add('active'); rotationAxis = {x: true, y: true, z: true}; document.querySelectorAll('.axis-btn').forEach(b => b.classList.add('active')); rotationSpeed = 0.2; el('ctrl-speed').value = 0.2; safeSetText('val-speed', "0.20"); };
 
             if(el('color-1')) el('color-1').oninput = (e) => { uniforms.uColor1.value.set(e.target.value); if(particlesMesh) particlesMesh.material.color.set(e.target.value); };
             if(el('color-2')) el('color-2').oninput = (e) => uniforms.uColor2.value.set(e.target.value);
@@ -582,24 +566,18 @@
                 const file = ev.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    new THREE.GLTFLoader().parse(e.target.result, '', (gltf) => {
+                    globalGLTFLoader.parse(e.target.result, '', (gltf) => {
                         currentMorphology = 'custom_glb';
                         while(activeGroup.children.length > 0) activeGroup.remove(activeGroup.children[0]);
                         const model = gltf.scene;
-                        model.traverse((child) => { 
-                            if (child.isMesh) { 
-                                child.material = reactiveMaterial; 
-                                // Asegurar que el modelo use smooth shading si es posible
-                                child.geometry.computeVertexNormals();
-                            } 
-                        });
+                        model.traverse((child) => { if (child.isMesh) { child.material = reactiveMaterial; child.geometry.computeVertexNormals(); } });
                         const box = new THREE.Box3().setFromObject(model);
                         model.position.sub(box.getCenter(new THREE.Vector3()));
-                        const s = 40 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
+                        const s = 45 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
                         model.scale.set(s, s, s);
                         activeGroup.add(model);
                         safeSetText('status-text', 'Asset_Injected');
-                    });
+                    }, (err) => { console.error("Parse Error:", err); });
                 };
                 reader.readAsArrayBuffer(file);
             };
@@ -619,7 +597,7 @@
                         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
                         uniforms.uTexMask.value = tex;
                         uniforms.uHasTex.value = true;
-                        safeSetText('status-text', 'TRIPLANAR_WRAP_360');
+                        safeSetText('status-text', 'TRIPLANAR_ENVELOPED');
                     });
                 };
                 reader.readAsDataURL(file);
@@ -631,9 +609,8 @@
             const time = clock.getElapsedTime();
             safeSetText('clock-display', new Date().toTimeString().split(' ')[0]);
             
-            // Decaimiento del efecto de explosión
             if(clickExplodeTarget > 0) {
-                clickExplodeTarget -= 0.1;
+                clickExplodeTarget -= 0.15;
                 if(clickExplodeTarget < 0) clickExplodeTarget = 0;
             }
             uniforms.uClickExplode.value = clickExplodeTarget;
@@ -643,15 +620,20 @@
                 let sum = 0; for(let i=0; i<15; i++) sum += dataArray[i];
                 const audio = sum / 15 / 255.0;
                 uniforms.uAudioData.value = audio;
-                if(gridHelper) gridHelper.position.y = -40 + (audio * 15);
-                if(particlesMesh) { particlesMesh.rotation.y += audio * 0.05; particlesMesh.position.z = Math.sin(time) * 20 * audio; }
+                if(gridHelper) gridHelper.position.y = -50 + (audio * 25);
+                if(particlesMesh) { particlesMesh.rotation.y += audio * 0.05; particlesMesh.position.z = Math.sin(time) * 30 * audio; }
             } else { uniforms.uAudioData.value = Math.sin(time * 1.5) * 0.12 + 0.1; }
             
             uniforms.uTime.value = time;
             uniforms.uMouse.value.lerp(targetMouse, 0.05);
             mouse.lerp(targetMouse, 0.05);
-            camera.position.x += (mouse.x * 40 - camera.position.x) * 0.05;
-            camera.position.y += (-mouse.y * 25 + 5 - camera.position.y) * 0.05;
+            
+            // MAGNETIC TILT Premium
+            tiltGroup.rotation.z = mouse.x * -0.4;
+            tiltGroup.rotation.x = mouse.y * 0.4;
+
+            camera.position.x += (mouse.x * 60 - camera.position.x) * 0.05;
+            camera.position.y += (-mouse.y * 40 + 5 - camera.position.y) * 0.05;
             camera.lookAt(0,0,0);
             
             if(isRotating) {
@@ -659,11 +641,15 @@
                 if(rotationAxis.y) activeGroup.rotation.y += rotationSpeed;
                 if(rotationAxis.z) activeGroup.rotation.z += rotationSpeed;
             }
-            
-            // Animación eterna de la Lemniscata
+
             if (currentMorphology === 'mobius') {
-                lemniscataAnimParam += 0.02 + (uniforms.uAudioData.value * 0.05);
+                lemniscataAnimParam += 0.03 + (uniforms.uAudioData.value * 0.1);
                 updateLemniscataGeometry(lemniscataAnimParam);
+            }
+            
+            if(currentMorphology === 'knot') {
+                activeGroup.children[0].rotation.x += 0.02;
+                activeGroup.children[0].rotation.z += 0.01;
             }
 
             if(Math.round(time*10)%5===0) safeSetText('fps-counter', Math.round(1/clock.getDelta()));
