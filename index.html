@@ -2,10 +2,13 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>SGX AR Hunt</title>
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
     <style>
         :root {
             --sgx-yellow: #FDCC0D;
@@ -13,68 +16,64 @@
             --sgx-dark: #0F172A;
             --sgx-light: #F8FAFC;
         }
+        
+        /* Reseteo agresivo para evitar scrollbars que rompen el canvas en iOS */
         body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
-            background-color: var(--sgx-dark); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+            background-color: var(--sgx-dark); font-family: 'Segoe UI', Roboto, sans-serif;
             color: var(--sgx-light); -webkit-user-select: none; user-select: none;
         }
         
-        /* EL SECRETO PARA IOS: 
-           No forzamos el video ni el canvas con CSS. AR.js se encarga.
-           Usamos Visibility y Opacity para la UI en vez de display:none
+        /* CAPAS UI: 
+           Todo va encima de la escena de AR. Nunca usamos display:none en la cámara.
         */
         .ui-layer {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             background: var(--sgx-dark); z-index: 1000;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-            overflow-y: auto; overflow-x: hidden;
+            transition: opacity 0.4s ease; overflow-y: auto; overflow-x: hidden;
         }
         
-        /* Ocultar sin romper el layout (Clave para que no se rompa AR.js) */
         .ui-hidden {
             opacity: 0 !important;
-            visibility: hidden !important;
             pointer-events: none !important;
         }
 
-        /* Capa transparente para el HUD mientras se juega */
         .ui-transparent {
             background: transparent !important;
-            pointer-events: none; /* Deja que los toques pasen a la escena 3D si es necesario */
+            pointer-events: none;
         }
+
         .pointer-events-auto { pointer-events: auto; }
 
-        /* Estilos Generales */
         h1, h2, h3 { color: var(--sgx-yellow); text-align: center; margin-bottom: 10px; }
         p { text-align: center; max-width: 85%; line-height: 1.5; margin-bottom: 20px;}
+        
         .btn { background-color: var(--sgx-yellow); color: var(--sgx-dark); border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 10px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.1s; }
         .btn:active { transform: scale(0.95); }
         .btn-blue { background-color: var(--sgx-blue); color: var(--sgx-light); }
         .btn-close { position: absolute; top: 20px; right: 20px; padding: 10px 15px; font-size: 14px; }
         
-        /* Panel de Administración */
         .admin-panel { background: var(--sgx-light); color: var(--sgx-dark); width: 90%; max-width: 500px; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative; margin: auto; }
         .form-group { display: flex; flex-direction: column; margin-bottom: 15px; text-align: left; }
         .form-group label { font-weight: bold; margin-bottom: 5px; color: var(--sgx-blue); }
         .form-group input, .form-group textarea, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; }
         .card-preview { border: 2px dashed var(--sgx-blue); padding: 15px; border-radius: 8px; text-align: center; margin-top: 15px; background: white; }
-        .qr-img { width: 100px; height: 100px; margin: 10px; }
+        .qr-img { width: 100px; height: 100px; margin: 10px; image-rendering: pixelated; }
         
-        /* AR HUD */
         .hud-container { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; box-sizing: border-box; }
         .hud-top { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: auto; }
         .hud-bottom { width: 100%; display: flex; justify-content: center; padding-bottom: 40px; pointer-events: auto; }
         .badge-count { background: var(--sgx-blue); padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 18px; border: 2px solid var(--sgx-yellow); cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
-        #collect-btn { font-size: 22px; padding: 20px 40px; background-color: #10B981; color: white; animation: pulse 1.5s infinite; }
         
+        #collect-btn { font-size: 22px; padding: 20px 40px; background-color: #10B981; color: white; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
 
         #admin-lock { position: absolute; bottom: 20px; right: 20px; font-size: 24px; opacity: 0.3; cursor: pointer; z-index: 2000; }
     </style>
 
     <script>
-        // Componentes A-Frame (Proporción y Animación)
+        // COMPONENTES A-FRAME
         AFRAME.registerComponent('proportional-image', {
             schema: { src: { type: 'string' } },
             init: function () {
@@ -95,7 +94,7 @@
                 this.el.setAttribute('animation', {
                     property: 'scale',
                     to: '1.5 1.5 1.5',
-                    dur: 1000,
+                    dur: 800,
                     easing: 'easeOutElastic'
                 });
             }
@@ -122,14 +121,16 @@
         embedded 
         arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" 
         renderer="logarithmicDepthBuffer: true;" 
-        vr-mode-ui="enabled: false">
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false">
+        
         <a-entity id="dynamic-markers"></a-entity>
         <a-entity camera></a-entity>
     </a-scene>
 
     <div id="screen-loading" class="ui-layer">
         <h1>SGX AR Hunt</h1>
-        <p>Cargando base de datos y AR...</p>
+        <p>Cargando sistemas...</p>
     </div>
 
     <div id="screen-menu" class="ui-layer ui-hidden">
@@ -142,10 +143,9 @@
 
     <div id="screen-instructions" class="ui-layer ui-hidden">
         <h2>Instrucciones</h2>
-        <p>1. Busca las tarjetas con el logo de SGX.</p>
-        <p>2. Apunta tu cámara hacia el Barcode negro (Matriz).</p>
-        <p>3. El arte saltará en tu pantalla. Presiona "Recolectar".</p>
-        <p>4. Completa la colección para ganar Insignias.</p>
+        <p>1. Busca las tarjetas de la cacería en el evento.</p>
+        <p>2. Apunta la cámara al Barcode cuadrado.</p>
+        <p>3. ¡El arte saltará! Toca "Recolectar".</p>
         <button class="btn btn-blue" onclick="window.appLogic.showMenu()">Volver</button>
     </div>
 
@@ -167,11 +167,10 @@
         <button class="btn btn-blue btn-close pointer-events-auto" onclick="window.appLogic.hideProfile()">X</button>
         <h2>Mi Progreso</h2>
         <p>Artefactos encontrados: <span id="profile-count">0</span> / <span id="profile-total">0</span></p>
-        <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; padding: 20px; pointer-events-auto;">
-            </div>
+        <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; pointer-events-auto;"></div>
     </div>
 
-    <div id="screen-admin" class="ui-layer ui-hidden" style="background: rgba(15, 23, 42, 0.95); align-items: flex-start; padding-top: 40px;">
+    <div id="screen-admin" class="ui-layer ui-hidden" style="background: rgba(15, 23, 42, 0.95); padding-top: 40px; justify-content: flex-start;">
         <button class="btn btn-blue btn-close pointer-events-auto" onclick="window.appLogic.showMenu()">X</button>
         <div class="admin-panel pointer-events-auto">
             <h2 style="color: var(--sgx-dark); margin-top:0;">Panel Admin SGX</h2>
@@ -192,7 +191,7 @@
                     <textarea id="art-clue" rows="2"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Foto de Pista (Referencia Visual):</label>
+                    <label>Foto de Pista:</label>
                     <input type="file" id="art-photo" accept="image/*">
                 </div>
                 <div class="form-group">
@@ -203,11 +202,11 @@
                     </select>
                     <input type="file" id="art-file" accept="image/*,.glb">
                 </div>
-                <button class="btn" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveArtifact()">Guardar Artefacto</button>
+                <button id="btn-save-art" class="btn" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveArtifact()">Guardar Artefacto</button>
             </div>
 
             <div id="tab-cards" class="ui-hidden">
-                <p style="font-size: 12px; color: #666;">Imprime estas tarjetas. El QR dirige a la App, el Barcode activa el AR.</p>
+                <p style="font-size: 12px; color: #666;">Imprime estas tarjetas. Extraemos el Barcode directamente del repositorio oficial para garantizar que AR.js lo lea perfecto.</p>
                 <div id="admin-cards-list" style="display:flex; flex-direction:column; gap:20px;"></div>
             </div>
 
@@ -254,7 +253,6 @@
         let collectedIds = [];
         let currentDetectedMarker = null;
 
-        // Utilidad: Compresión
         function compressImage(file, quality = 0.6, maxWidth = 400) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -290,25 +288,6 @@
             });
         }
 
-        function drawMatrixBarcode(canvasId, id) {
-            const canvas = document.getElementById(canvasId);
-            if(!canvas) return;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = "white"; ctx.fillRect(0, 0, 150, 150);
-            ctx.fillStyle = "black"; ctx.fillRect(10, 10, 130, 130);
-            ctx.fillStyle = "white"; ctx.fillRect(30, 30, 90, 90);
-            
-            ctx.fillStyle = "black";
-            const bin = id.toString(2).padStart(9, '0');
-            let idx = 0;
-            for(let y=0; y<3; y++){
-                for(let x=0; x<3; x++){
-                    if(bin[idx] === '1') ctx.fillRect(30 + (x*30), 30 + (y*30), 30, 30);
-                    idx++;
-                }
-            }
-        }
-
         window.appLogic = {
             init: async function() {
                 signInAnonymously(auth);
@@ -342,7 +321,9 @@
                     artEl.setAttribute('pop-out', '');
                     artEl.setAttribute('rotation', '-90 0 0');
 
-                    if (data.type === 'image') artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
+                    if (data.type === 'image') {
+                        artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
+                    }
 
                     markerEl.appendChild(artEl);
                     markersContainer.appendChild(markerEl);
@@ -386,25 +367,26 @@
                 const appUrl = window.location.href.split('?')[0]; 
                 
                 artifactsData.forEach(art => {
+                    // Magia: Obtenemos la imagen exacta del repositorio de AR.js para garantizar escaneo perfecto
+                    const barcodeImgUrl = `https://raw.githack.com/AR-js-org/AR.js/master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3/${art.barcodeId}.png`;
+
                     container.innerHTML += `
                         <div class="card-preview">
                             <h4 style="color: var(--sgx-blue); margin:0 0 10px 0;">${art.name}</h4>
                             <p style="margin: 0 0 10px 0; color: #333; font-size:14px;">Barcode ID: <strong>${art.barcodeId}</strong></p>
                             <div style="display:flex; justify-content: space-around; align-items:center;">
                                 <div>
-                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">QR App</p>
+                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">QR (Link App)</p>
                                     <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(appUrl)}" alt="QR">
                                 </div>
                                 <div>
-                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">Escanear AR</p>
-                                    <canvas id="list-barcode-${art.barcodeId}" class="qr-img" width="150" height="150"></canvas>
+                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">Barcode (Imprimir)</p>
+                                    <img class="qr-img" src="${barcodeImgUrl}" alt="Barcode ${art.barcodeId}">
                                 </div>
                             </div>
                         </div>
                     `;
                 });
-
-                artifactsData.forEach(art => drawMatrixBarcode(`list-barcode-${art.barcodeId}`, art.barcodeId));
             },
 
             switchScreen: function(hideId, showId) {
@@ -416,12 +398,8 @@
                 document.getElementById('screen-menu').classList.remove('ui-hidden');
             },
             startGame: function() {
-                // Solo escondemos el menú; el HUD se muestra. La escena AR ya estaba lista atrás.
                 document.querySelectorAll('.ui-layer').forEach(el => el.classList.add('ui-hidden'));
                 document.getElementById('screen-hud').classList.remove('ui-hidden');
-                
-                // Forzamos un resize suave para que iOS despierte si se quedó dormido.
-                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 300);
             },
             showInstructions: function() { this.switchScreen('screen-menu', 'screen-instructions'); },
             showProfile: function() { document.getElementById('screen-profile').classList.remove('ui-hidden'); },
@@ -429,8 +407,10 @@
             
             promptAdmin: function() {
                 const pwd = prompt("Clave:");
-                if (pwd === "sgx2026") this.switchScreen('screen-menu', 'screen-admin');
-                else if (pwd !== null) alert("Clave incorrecta.");
+                if (pwd === "sgx2026") {
+                    document.querySelectorAll('.ui-layer').forEach(el => el.classList.add('ui-hidden'));
+                    document.getElementById('screen-admin').classList.remove('ui-hidden');
+                } else if (pwd !== null) alert("Clave incorrecta.");
             },
             switchAdminTab: function(tab) {
                 const tabs = ['artifacts', 'cards', 'badges'];
@@ -472,7 +452,7 @@
                 if(!name || !photoFile || !artFile) return alert("Faltan campos.");
 
                 try {
-                    document.getElementById('btn-tab-artifacts').innerText = "Subiendo...";
+                    document.getElementById('btn-save-art').innerText = "Subiendo...";
                     
                     const photoBase64 = await compressImage(photoFile);
                     let artBase64 = "";
@@ -498,7 +478,7 @@
                 } catch (e) {
                     if(e !== "File too large") alert("Error: " + e.message);
                 } finally {
-                    document.getElementById('btn-tab-artifacts').innerText = "Crear";
+                    document.getElementById('btn-save-art').innerText = "Guardar Artefacto";
                 }
             },
 
