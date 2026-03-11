@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SGX AR Scavenger Hunt</title>
     
     <!-- Tailwind CSS -->
@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     
-    <!-- A-Frame y AR.js -->
+    <!-- A-Frame y AR.js (Versiones ultra estables) -->
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -32,41 +32,65 @@
     </script>
 
     <style>
-        /* FONDO NEGRO PURO: Evita barras de colores extraños sin romper la calibración matemática de AR.js */
-        body { margin: 0; overflow: hidden; background-color: #000; width: 100vw; height: 100vh; position: fixed; inset: 0; overscroll-behavior: none; }
-        
-        /* Contenedor principal de AR (Sin forzar dimensiones en video) */
-        #ar-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
-        
-        /* Capa UI Base: Por encima de la cámara, sin interferir */
+        /* BASE PURA: Sin interferir con la cámara de AR.js */
+        html, body { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background-color: #000; 
+            -webkit-user-select: none; user-select: none;
+        }
+
+        /* CAPA DE UI: Fija sobre la cámara, maneja sus propios scrolls sin afectar el body */
         #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 1000; pointer-events: none; overflow: hidden;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 9999; pointer-events: none;
         }
 
-        .scrollable-content {
-            width: 100%; height: 100%; overflow-y: auto; pointer-events: auto; padding-bottom: 80px;
+        /* Paneles de la Interfaz (Home, Admin, etc.) */
+        .ui-panel {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #0F172A; pointer-events: auto;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
         }
 
-        /* Destrucción segura de barras de desplazamiento visuales */
-        ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
-        * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+        /* Cuando estamos jugando, el panel se vuelve transparente para ver la cámara */
+        .ui-panel.transparent { background-color: transparent !important; pointer-events: none; overflow: hidden; }
+        
+        /* Botones interactivos sobre fondo transparente */
+        .interactive-element { pointer-events: auto; }
 
-        .interactive { pointer-events: auto; }
         .hidden { display: none !important; }
-        
-        /* 🔥 FIX iOS: Ocultar popups nativos de A-Frame que bloquean la pantalla */
-        .a-dialog, .a-modal, .a-enter-vr { display: none !important; pointer-events: none !important; } 
-        
-        /* Animaciones UI */
+
+        /* ELIMINAR SCROLLBARS VISUALES */
+        ::-webkit-scrollbar { display: none; }
+        * { scrollbar-width: none; }
+
+        /* FIX iOS: Destruir los modales blancos nativos de A-Frame que congelan la pantalla */
+        .a-dialog, .a-modal, .a-enter-vr { display: none !important; }
+
+        /* Animaciones */
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         .slide-up { animation: slideUp 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 
-    <!-- COMPONENTES AR CUSTOM (Anti-Estiramiento y Pop-Out) -->
+    <!-- LOGICA AR.JS CUSTOM (Registrar artefactos) -->
     <script>
+        AFRAME.registerComponent('ar-logic', {
+            schema: { artifactId: { type: 'string' } },
+            init: function () {
+                this.el.addEventListener('markerFound', () => {
+                    // Solo reaccionar si estamos en modo "Juego"
+                    if (window.appState && window.appState.isGameActive) {
+                        const wrapper = this.el.querySelector('.model-wrapper');
+                        if (wrapper) wrapper.setAttribute('animation__pop', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutElastic');
+                        if (window.triggerFound) window.triggerFound(this.data.artifactId);
+                    }
+                });
+            }
+        });
+
+        // Anti-estiramiento de imágenes 3D
         AFRAME.registerComponent('fix-aspect-ratio', {
             init: function () {
                 this.el.addEventListener('materialtextureloaded', () => {
@@ -74,26 +98,10 @@
                     if (map && map.image) {
                         const ratio = map.image.width / map.image.height;
                         if (ratio > 1) { 
-                            this.el.setAttribute('width', '1.5'); 
-                            this.el.setAttribute('height', (1.5 / ratio).toString());
+                            this.el.setAttribute('width', '1.5'); this.el.setAttribute('height', (1.5 / ratio).toString());
                         } else { 
-                            this.el.setAttribute('height', '1.5'); 
-                            this.el.setAttribute('width', (1.5 * ratio).toString());
+                            this.el.setAttribute('height', '1.5'); this.el.setAttribute('width', (1.5 * ratio).toString());
                         }
-                    }
-                });
-            }
-        });
-
-        AFRAME.registerComponent('ar-logic', {
-            schema: { artifactId: { type: 'string' } },
-            init: function () {
-                this.el.addEventListener('markerFound', () => {
-                    const screenPlay = document.getElementById('screen-play');
-                    if (screenPlay && !screenPlay.classList.contains('hidden')) {
-                        const wrapper = this.el.querySelector('.model-wrapper');
-                        if (wrapper) wrapper.setAttribute('animation__pop', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutElastic');
-                        if (window.triggerFound) window.triggerFound(this.data.artifactId);
                     }
                 });
             }
@@ -102,53 +110,60 @@
 </head>
 <body class="font-body text-white">
 
-    <!-- AR SCENE CONTAINER (Se inyecta dinámicamente para no secuestrar la cámara al inicio) -->
-    <div id="ar-container"></div>
+    <!-- ESCENA AR (Siempre en el DOM para evitar cuelgues, pero oculta tras la UI) -->
+    <a-scene 
+        embedded 
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" 
+        renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true" 
+        device-orientation-permission-ui="enabled: false" 
+        vr-mode-ui="enabled: false"
+        id="ar-scene">
+        
+        <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
+        
+        <!-- Los marcadores se inyectan aquí con JavaScript -->
+        <a-entity id="markers-container"></a-entity>
+        
+        <a-entity camera></a-entity>
+    </a-scene>
 
-    <!-- UI LAYER -->
+    <!-- CAPA DE INTERFAZ -->
     <div id="ui-layer">
         
-        <!-- PANTALLA CARGA -->
-        <div id="loading-screen" class="absolute inset-0 bg-sgx-dark flex flex-col items-center justify-center z-[2000] interactive">
+        <!-- 1. PANTALLA CARGA -->
+        <div id="screen-loading" class="ui-panel flex flex-col items-center justify-center z-50">
             <i class="fa-solid fa-satellite-dish text-sgx-yellow text-5xl mb-4 animate-ping"></i>
             <h2 class="font-heading text-xl text-white tracking-widest uppercase">Iniciando SGX...</h2>
         </div>
-        
-        <!-- MODAL ALERTAS SEGURO -->
-        <div id="alert-modal" class="hidden absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center p-6 interactive z-[3000] backdrop-blur-sm">
-            <div class="bg-gray-900 border border-sgx-yellow rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl fade-in relative overflow-hidden">
-                <i class="fa-solid fa-circle-exclamation text-sgx-yellow text-4xl mb-3"></i>
-                <h3 class="font-heading text-lg text-white mb-2 uppercase">Aviso</h3>
-                <p id="alert-message" class="text-sm text-gray-300 mb-6"></p>
-                <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">Entendido</button>
-            </div>
-        </div>
 
-        <!-- PANTALLA INICIO (JUGADOR) -->
-        <div id="screen-home" class="hidden absolute inset-0 bg-sgx-dark flex flex-col items-center justify-center p-6 interactive">
+        <!-- 2. PANTALLA INICIO -->
+        <div id="screen-home" class="ui-panel hidden flex flex-col items-center justify-center p-6 relative">
             <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at center, #FDCC0D 1px, transparent 1px); background-size: 30px 30px;"></div>
             <div class="relative z-10 text-center max-w-md w-full slide-up">
                 <div class="w-24 h-24 bg-sgx-blue rounded-2xl rotate-45 mx-auto mb-8 flex items-center justify-center shadow-[0_0_30px_rgba(50,82,123,0.8)] border-2 border-sgx-yellow">
                     <i class="fa-solid fa-expand text-sgx-yellow text-4xl -rotate-45"></i>
                 </div>
                 <h1 class="font-heading text-4xl text-white mb-2 uppercase tracking-widest">SGX<br><span class="text-sgx-yellow">Scavenger</span></h1>
-                <p class="text-gray-400 mb-10 text-sm">Escanea los marcadores físicos para revelar arte 3D oculto en el evento.</p>
+                <p class="text-gray-400 mb-10 text-sm">Explora el evento y escanea los símbolos físicos para revelar arte 3D.</p>
+                
                 <div class="space-y-4">
-                    <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(253,204,13,0.5)] uppercase tracking-wide hover:bg-yellow-400 transition">
+                    <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(253,204,13,0.5)] uppercase tracking-wide">
                         <i class="fa-solid fa-play mr-2"></i> Jugar Ahora
                     </button>
-                    <button onclick="window.showScreen('screen-instructions')" class="w-full bg-sgx-dark text-white font-bold py-4 px-6 rounded-xl border border-gray-600 shadow-lg uppercase hover:bg-gray-800 transition">
+                    <button onclick="window.showScreen('screen-instructions')" class="w-full bg-sgx-dark text-white font-bold py-4 px-6 rounded-xl border border-gray-600 shadow-lg uppercase">
                         <i class="fa-solid fa-book mr-2"></i> Instrucciones
                     </button>
                 </div>
             </div>
             <!-- Candado Admin -->
-            <div class="absolute bottom-4 right-4 text-gray-700 cursor-pointer z-50 p-4" onclick="window.checkAdmin()"><i class="fa-solid fa-lock text-sm"></i></div>
+            <div class="absolute bottom-4 right-4 text-gray-700 cursor-pointer z-50 p-4" onclick="window.checkAdmin()">
+                <i class="fa-solid fa-lock text-sm"></i>
+            </div>
         </div>
 
-        <!-- PANTALLA INSTRUCCIONES -->
-        <div id="screen-instructions" class="hidden absolute inset-0 bg-sgx-dark flex flex-col items-center p-6 interactive">
-            <div class="max-w-md w-full fade-in mt-6">
+        <!-- 3. PANTALLA INSTRUCCIONES -->
+        <div id="screen-instructions" class="ui-panel hidden p-6">
+            <div class="max-w-md mx-auto w-full fade-in mt-6">
                 <div class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
                     <h2 class="font-heading text-2xl text-sgx-yellow">Instrucciones</h2>
                     <button onclick="window.showScreen('screen-home')" class="text-gray-400 text-2xl"><i class="fa-solid fa-xmark"></i></button>
@@ -156,110 +171,78 @@
                 <div class="space-y-6">
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">1</div>
-                        <p class="text-sm text-gray-300">Revisa la lista de <b class="text-white">Pistas</b> en el menú del juego.</p>
+                        <p class="text-sm text-gray-300">Abre las <b class="text-white">Pistas</b> en el juego para ver dónde buscar.</p>
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">2</div>
-                        <p class="text-sm text-gray-300">Encuentra los <b class="text-white">Símbolos AR</b> (cuadros negros) en el lugar físico del evento.</p>
+                        <p class="text-sm text-gray-300">Encuentra los <b class="text-white">Símbolos Cuadrados</b> impresos en el evento.</p>
                     </div>
                     <div class="flex items-start">
                         <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">3</div>
-                        <p class="text-sm text-gray-300">Apunta tu cámara al símbolo y el arte 3D saltará hacia ti.</p>
+                        <p class="text-sm text-gray-300">Apunta la cámara al símbolo. El arte 3D saltará para que lo recolectes.</p>
                     </div>
                 </div>
-                <button onclick="window.showScreen('screen-home')" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl mt-10 uppercase shadow-lg hover:bg-yellow-400 transition">Entendido</button>
+                <button onclick="window.showScreen('screen-home')" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl mt-10 uppercase shadow-lg">Entendido</button>
             </div>
         </div>
 
-        <!-- PANTALLA ADMIN -->
-        <div id="screen-dash" class="hidden absolute inset-0 bg-sgx-dark interactive">
-            <div class="scrollable-content p-4">
-                <div class="max-w-md mx-auto fade-in pb-10">
-                    <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-4 mt-2">
-                        <h2 class="font-heading text-xl text-sgx-yellow"><i class="fa-solid fa-user-shield mr-2"></i> SGX Admin</h2>
-                        <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 px-3 py-2 rounded text-sm hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                    
-                    <div class="flex mb-6 space-x-2 bg-gray-900 p-1 rounded-lg">
-                        <button onclick="window.switchAdminTab('artifacts')" id="tab-btn-artifacts" class="flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition">Artefactos</button>
-                        <button onclick="window.switchAdminTab('badges')" id="tab-btn-badges" class="flex-1 py-2 text-sm font-bold text-gray-400 hover:text-white rounded-md transition">Insignias</button>
-                    </div>
-
-                    <!-- ADMIN ARTEFACTOS -->
-                    <div id="tab-artifacts">
-                        <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
-                            <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Nuevo Artefacto</h3>
-                            <div class="space-y-4">
-                                <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Nombre (Ej. La Botella Mágica)">
-                                <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Pista (Ej. Búscalo en la barra...)"></textarea>
-                                <div>
-                                    <label class="block text-[10px] text-gray-400 mb-1 uppercase">FOTO DE LA PISTA (Ubicación real)</label>
-                                    <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-gray-700 file:text-white file:border-0 file:rounded file:px-2 file:py-1">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">ARTE 3D POP-OUT (Imagen o .GLB)</label>
-                                    <input type="file" id="item-art-file" accept="image/*,.glb" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
-                                    <p class="text-[9px] text-red-400 mt-1 font-bold">Límite: .GLB debe pesar menos de 800KB.</p>
-                                </div>
-                                <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-green-500 transition">Guardar Artefacto</button>
-                            </div>
-                        </div>
-                        <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2 flex justify-between items-center">
-                            Artefactos Activos <span id="list-count" class="bg-sgx-blue px-2 py-1 rounded text-xs">0</span>
-                        </h3>
-                        <div id="admin-artifacts-list" class="space-y-4"></div>
-                    </div>
-
-                    <!-- ADMIN INSIGNIAS -->
-                    <div id="tab-badges" class="hidden">
-                        <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
-                            <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Crear Insignia</h3>
-                            <div class="space-y-4">
-                                <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Nombre (Ej. Master Explorer)">
-                                <div class="flex space-x-2">
-                                    <div class="flex-1"><input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm focus:border-sgx-yellow outline-none" placeholder="Req. Cantidad"></div>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">IMAGEN DE LA INSIGNIA</label>
-                                    <input type="file" id="badge-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
-                                </div>
-                                <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2 hover:bg-blue-600 transition shadow-lg">Guardar Insignia</button>
-                            </div>
-                        </div>
-                        <h3 class="font-bold text-white text-sm uppercase mb-3 border-b border-gray-700 pb-2">Insignias Creadas</h3>
-                        <div id="admin-badges-list" class="space-y-3"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- MODAL TARJETA IMPRIMIBLE -->
-        <div id="modal-print-card" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-6 interactive z-[5000]">
-            <div class="w-full max-w-sm bg-white border-4 border-sgx-dark p-6 text-center rounded-xl relative shadow-2xl">
-                <button onclick="document.getElementById('modal-print-card').classList.add('hidden')" class="absolute top-2 right-2 text-gray-400 hover:text-black w-8 h-8"><i class="fa-solid fa-xmark text-xl"></i></button>
-                <h2 class="font-heading text-xl text-black uppercase font-bold mb-4" id="print-name">Nombre</h2>
-                
-                <div class="flex justify-between items-center mb-4 gap-4">
-                    <div class="w-1/2 flex flex-col items-center justify-center">
-                        <p class="text-[10px] text-gray-500 font-bold mb-1 uppercase">1. Escanea URL</p>
-                        <div id="print-qr" class="border-2 border-gray-300 p-1 rounded bg-white"></div>
-                    </div>
-                    
-                    <div class="w-1/2 flex flex-col items-center justify-center">
-                        <p class="text-[10px] text-sgx-blue font-bold mb-1 uppercase">2. Apunta Cámara</p>
-                        <img id="print-barcode-img" src="" class="w-24 h-24 border-2 border-black object-contain bg-white">
-                        <p class="text-[9px] text-gray-500 font-bold mt-1 uppercase">ID: <span id="print-barcode-id">0</span></p>
-                    </div>
+        <!-- 4. PANTALLA ADMIN DASHBOARD -->
+        <div id="screen-dash" class="ui-panel hidden p-4 pb-20">
+            <div class="max-w-md mx-auto fade-in">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-4 mt-2">
+                    <h2 class="font-heading text-xl text-sgx-yellow"><i class="fa-solid fa-user-shield mr-2"></i> SGX Admin</h2>
+                    <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 px-3 py-2 rounded text-sm"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 
-                <p class="text-xs text-sgx-blue font-bold uppercase mt-2 border-t pt-2">Spatialgineers AR Hunt</p>
+                <div class="flex mb-6 space-x-2 bg-gray-900 p-1 rounded-lg">
+                    <button onclick="window.switchAdminTab('artifacts')" id="tab-btn-artifacts" class="flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md">Artefactos</button>
+                    <button onclick="window.switchAdminTab('badges')" id="tab-btn-badges" class="flex-1 py-2 text-sm font-bold text-gray-400 rounded-md">Insignias</button>
+                </div>
+
+                <!-- Admin: Artefactos -->
+                <div id="tab-artifacts">
+                    <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
+                        <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Añadir Artefacto</h3>
+                        <div class="space-y-4">
+                            <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. Trofeo)">
+                            <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Pista de ubicación..."></textarea>
+                            <div>
+                                <label class="block text-[10px] text-gray-400 mb-1 uppercase">Foto de Pista (Lugar Real)</label>
+                                <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-gray-700 file:text-white file:border-0 file:rounded file:px-2 file:py-1">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">Arte 3D Pop-Out (Img o GLB)</label>
+                                <input type="file" id="item-art-file" accept="image/*,.glb" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
+                                <p class="text-[9px] text-red-400 mt-1 font-bold">Base de Datos Gratis: Límite 800KB.</p>
+                            </div>
+                            <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg">Guardar Artefacto</button>
+                        </div>
+                    </div>
+                    <div id="admin-artifacts-list" class="space-y-4 pb-10"></div>
+                </div>
+
+                <!-- Admin: Insignias -->
+                <div id="tab-badges" class="hidden">
+                    <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
+                        <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Crear Insignia</h3>
+                        <div class="space-y-4">
+                            <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. Master)">
+                            <input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Desbloquea al encontrar X artefactos">
+                            <div>
+                                <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">Imagen de la Insignia</label>
+                                <input type="file" id="badge-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
+                            </div>
+                            <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2">Guardar Insignia</button>
+                        </div>
+                    </div>
+                    <div id="admin-badges-list" class="space-y-3 pb-10"></div>
+                </div>
             </div>
-            <p class="mt-4 text-white text-sm font-bold bg-sgx-dark px-4 py-2 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-camera text-sgx-yellow mr-2"></i>Toma Screenshot para Imprimir</p>
         </div>
 
-        <!-- HUD JUGADOR -->
-        <div id="screen-play" class="hidden absolute inset-0 flex flex-col justify-between p-4 interactive">
-            <div class="flex justify-between items-start fade-in">
+        <!-- 5. HUD JUGADOR (El fondo transparente) -->
+        <div id="screen-play" class="ui-panel transparent hidden flex-col justify-between p-4">
+            <div class="flex justify-between items-start fade-in interactive-element">
                 <div class="bg-sgx-dark bg-opacity-90 backdrop-blur border border-sgx-blue rounded-2xl p-3 flex items-center space-x-4 shadow-lg">
                     <div class="bg-sgx-blue p-3 rounded-xl text-sgx-yellow"><i class="fa-solid fa-cube text-xl"></i></div>
                     <div>
@@ -267,58 +250,94 @@
                         <p class="font-heading text-xl text-white"><span id="hud-found" class="text-sgx-yellow">0</span> / <span id="hud-total">0</span></p>
                     </div>
                 </div>
-                <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-house"></i></button>
+                <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg flex items-center justify-center">
+                    <i class="fa-solid fa-house"></i>
+                </button>
             </div>
-            <div class="flex justify-center mb-6 slide-up">
-                <button onclick="window.toggleClues(true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide hover:bg-blue-600 transition">
-                    <i class="fa-solid fa-map-location-dot mr-3"></i> Ver Pistas
+            
+            <div class="flex justify-center mb-6 slide-up interactive-element">
+                <button onclick="window.toggleModal('modal-clues', true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide">
+                    <i class="fa-solid fa-map-location-dot mr-3"></i> Pistas
                 </button>
             </div>
         </div>
 
-        <!-- PISTAS JUGADOR -->
-        <div id="modal-clues" class="hidden absolute inset-0 bg-sgx-dark bg-opacity-95 interactive z-50">
-            <div class="scrollable-content p-4">
-                <div class="max-w-md mx-auto fade-in mt-2">
-                    <div class="flex justify-between items-center mb-6 bg-gray-900 p-4 rounded-xl border border-sgx-yellow sticky top-0 z-10 shadow-lg">
-                        <h2 class="font-heading text-lg text-white">Ubicaciones</h2>
-                        <button onclick="window.toggleClues(false)" class="text-gray-400 text-2xl w-8 h-8"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                    <div id="player-clues-list" class="space-y-4"></div>
+        <!-- 6. MODALES INTERACTIVOS (Flotan sobre todo) -->
+        
+        <!-- Pistas -->
+        <div id="modal-clues" class="hidden absolute inset-0 bg-sgx-dark bg-opacity-95 z-[200] overflow-y-auto interactive-element pb-10">
+            <div class="max-w-md mx-auto p-4 fade-in mt-2">
+                <div class="flex justify-between items-center mb-6 bg-gray-900 p-4 rounded-xl border border-sgx-yellow sticky top-0 z-10 shadow-lg">
+                    <h2 class="font-heading text-lg text-white">Ubicaciones</h2>
+                    <button onclick="window.toggleModal('modal-clues', false)" class="text-gray-400 text-2xl"><i class="fa-solid fa-xmark"></i></button>
                 </div>
+                <div id="player-clues-list" class="space-y-4"></div>
             </div>
         </div>
 
-        <!-- OVERLAY RECOLECCION -->
-        <div id="screen-ar-reward" class="hidden absolute bottom-6 w-full flex justify-center interactive z-[500]">
-            <div class="w-full max-w-sm mx-4 bg-gray-900 bg-opacity-90 backdrop-blur-md border-2 border-sgx-yellow p-6 rounded-3xl text-center slide-up shadow-[0_0_40px_rgba(253,204,13,0.5)]">
+        <!-- Tarjeta de Impresión -->
+        <div id="modal-print-card" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-6 z-[200] interactive-element">
+            <div class="w-full max-w-sm bg-white border-4 border-sgx-dark p-6 text-center rounded-xl relative shadow-2xl fade-in">
+                <button onclick="window.toggleModal('modal-print-card', false)" class="absolute top-2 right-2 text-gray-400 hover:text-black w-8 h-8"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <h2 class="font-heading text-xl text-black uppercase font-bold mb-4" id="print-name">Nombre</h2>
+                
+                <div class="flex justify-between items-center mb-4 gap-4">
+                    <div class="w-1/2 flex flex-col items-center">
+                        <p class="text-[10px] text-gray-500 font-bold mb-1 uppercase">1. Escanea URL</p>
+                        <div id="print-qr" class="border-2 border-gray-300 p-1 rounded bg-white"></div>
+                    </div>
+                    <div class="w-1/2 flex flex-col items-center">
+                        <p class="text-[10px] text-sgx-blue font-bold mb-1 uppercase">2. Apunta Cámara</p>
+                        <!-- URL Oficial de Github Pages de AR.js - Libre de CORS -->
+                        <img id="print-barcode-img" src="" class="w-24 h-24 border-2 border-black object-contain bg-white">
+                        <p class="text-[9px] text-gray-500 font-bold mt-1 uppercase">Símbolo ID: <span id="print-barcode-id">0</span></p>
+                    </div>
+                </div>
+                <p class="text-xs text-sgx-blue font-bold uppercase mt-2 border-t pt-2">Spatialgineers AR</p>
+            </div>
+            <p class="mt-4 text-white text-sm font-bold bg-sgx-dark px-4 py-2 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-camera text-sgx-yellow mr-2"></i>Toma Screenshot</p>
+        </div>
+
+        <!-- Recompensa de Escaneo -->
+        <div id="modal-reward" class="hidden absolute bottom-6 w-full flex justify-center z-[200] interactive-element">
+            <div class="w-full max-w-sm mx-4 bg-gray-900 bg-opacity-90 backdrop-blur border-2 border-sgx-yellow p-6 rounded-3xl text-center slide-up shadow-2xl">
                 <h3 class="font-heading text-xl text-sgx-yellow uppercase mb-1">¡Artefacto Revelado!</h3>
                 <p class="text-white font-bold mb-4" id="ar-artifact-name">Nombre</p>
-                <button id="btn-collect" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl uppercase tracking-widest hover:bg-yellow-400">
+                <button id="btn-collect" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl uppercase tracking-widest">
                     <i class="fa-solid fa-download mr-2"></i> Recolectar
                 </button>
             </div>
         </div>
 
-        <!-- MODAL BADGE -->
-        <div id="modal-badge" class="hidden absolute inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-6 interactive z-[6000] backdrop-blur-md">
-            <div class="bg-sgx-dark border-2 border-sgx-copper rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_60px_rgba(184,115,51,0.6)] pop-out relative overflow-hidden">
+        <!-- Desbloqueo de Insignia -->
+        <div id="modal-badge" class="hidden absolute inset-0 bg-black bg-opacity-95 flex flex-col items-center justify-center p-6 z-[250] interactive-element">
+            <div class="bg-sgx-dark border-2 border-sgx-copper rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_60px_rgba(184,115,51,0.6)] slide-up relative overflow-hidden">
                 <p class="text-xs text-sgx-copper uppercase tracking-widest mb-4 font-bold">¡Insignia Obtenida!</p>
-                <div class="w-32 h-32 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center shadow-lg overflow-hidden" id="badge-display-container">
-                </div>
+                <div class="w-32 h-32 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center overflow-hidden" id="badge-display-container"></div>
                 <h2 id="badge-name-display" class="font-heading text-2xl font-bold text-white mb-6 uppercase">Master</h2>
-                <button onclick="document.getElementById('modal-badge').classList.add('hidden')" class="w-full bg-sgx-copper text-white font-bold py-3 rounded-xl hover:bg-orange-600 transition">Continuar</button>
+                <button onclick="window.toggleModal('modal-badge', false)" class="w-full bg-sgx-copper text-white font-bold py-3 rounded-xl hover:bg-orange-600 transition">Continuar</button>
+            </div>
+        </div>
+
+        <!-- Error/Alerta -->
+        <div id="alert-modal" class="hidden absolute inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-6 z-[300] interactive-element">
+            <div class="bg-gray-900 border border-sgx-yellow rounded-2xl p-6 max-w-sm w-full text-center slide-up">
+                <i class="fa-solid fa-circle-exclamation text-sgx-yellow text-4xl mb-3"></i>
+                <h3 class="font-heading text-lg text-white mb-2 uppercase">Aviso</h3>
+                <p id="alert-message" class="text-sm text-gray-300 mb-6"></p>
+                <button onclick="window.toggleModal('alert-modal', false)" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl">Entendido</button>
             </div>
         </div>
 
     </div>
 
-    <!-- FIREBASE MODULE & LOGIC -->
+    <!-- FIREBASE MODULE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+        // Tu configuración oficial de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
             authDomain: "sgx-ar-hunt.firebaseapp.com",
@@ -329,9 +348,13 @@
             measurementId: "G-QV8KZR2V97"
         };
 
-        const appKey = 'sgx-hunt-v17'; 
+        const appKey = 'sgx-hunt-v18'; // Versión auditada
         
-        window.appState = { db: null, auth: null, userId: null, artifacts: [], badges: [], foundIds: new Set(), activeARId: null };
+        window.appState = { 
+            db: null, auth: null, userId: null, 
+            artifacts: [], badges: [], foundIds: new Set(), 
+            activeARId: null, isGameActive: false 
+        };
 
         async function initApp() {
             try {
@@ -341,11 +364,13 @@
 
                 await signInAnonymously(window.appState.auth);
                 onAuthStateChanged(window.appState.auth, (user) => {
-                    if (user) { window.appState.userId = user.uid; loadData(); }
+                    if (user) { 
+                        window.appState.userId = user.uid; 
+                        loadData(); 
+                    }
                 });
             } catch (e) {
-                const loader = document.getElementById('loading-screen');
-                if(loader) loader.classList.add('hidden');
+                window.toggleModal('screen-loading', false);
                 window.showAlert("Error conectando a Firebase.");
             }
         }
@@ -353,7 +378,7 @@
         function loadData() {
             const db = window.appState.db;
             
-            // Cargar Artefactos (Blindado contra nulos)
+            // Cargar Artefactos
             onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'items'), (snapshot) => {
                 window.appState.artifacts = [];
                 snapshot.forEach(doc => window.appState.artifacts.push({ docId: doc.id, ...doc.data() }));
@@ -363,11 +388,14 @@
                 if(window.renderPlayerClues) window.renderPlayerClues();
                 if(window.updateHUD) window.updateHUD();
                 
-                const loader = document.getElementById('loading-screen');
-                if(loader && !loader.classList.contains('hidden')) {
-                    loader.classList.add('hidden');
-                    const home = document.getElementById('screen-home');
-                    if(home) home.classList.remove('hidden');
+                window.toggleModal('screen-loading', false);
+                
+                // Mostrar Home si todo está oculto (primer arranque)
+                const play = document.getElementById('screen-play');
+                const dash = document.getElementById('screen-dash');
+                const inst = document.getElementById('screen-instructions');
+                if (play && dash && inst && play.classList.contains('hidden') && dash.classList.contains('hidden') && inst.classList.contains('hidden')) {
+                    window.showScreen('screen-home');
                 }
             });
 
@@ -379,19 +407,18 @@
                 if(window.renderBadgesList) window.renderBadgesList();
             });
 
-            // Cargar Progreso
+            // Cargar Progreso Jugador
             onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
                 if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
                 if(window.updateHUD) window.updateHUD();
             });
         }
 
-        // COMPRESOR LOCAL
         window.processFileAsBase64 = (file, isGLB, callback) => {
             if (!file) return callback(null);
             if (isGLB) {
-                if (file.size > 900000) {
-                    window.showAlert("El archivo GLB pesa más de 900KB y Firebase lo bloqueará. Redúcelo en Blender o usa imagen.");
+                if (file.size > 850000) {
+                    window.showAlert("El archivo GLB es muy pesado (>850KB). Reduce sus polígonos en Blender.");
                     return callback(null);
                 }
                 const reader = new FileReader();
@@ -403,8 +430,7 @@
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const MAX = 400; 
-                        const scale = Math.min(MAX / img.width, 1);
+                        const scale = Math.min(400 / img.width, 1);
                         canvas.width = img.width * scale; canvas.height = img.height * scale;
                         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
                         callback(canvas.toDataURL('image/jpeg', 0.6));
@@ -420,94 +446,75 @@
             const hintEl = document.getElementById('item-hint');
             const btnSave = document.getElementById('btn-save-artifact');
 
-            if (!nameEl || !hintEl || !nameEl.value || !hintEl.value) return window.showAlert("Nombre y pista obligatorios.");
-            
+            if (!nameEl.value || !hintEl.value) return window.showAlert("Nombre y pista obligatorios.");
             btnSave.innerText = "Empaquetando..."; btnSave.disabled = true;
 
-            try {
-                const usedBarcodes = window.appState.artifacts.map(a => parseInt(a.barcode));
-                let nextBarcode = 0;
-                while(usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
+            const usedBarcodes = window.appState.artifacts.map(a => parseInt(a.barcode));
+            let nextBarcode = 0;
+            while(usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
 
-                const fileHint = document.getElementById('item-hint-image').files[0];
-                const fileArt = document.getElementById('item-art-file').files[0];
-                let isGLB = false;
-                if(fileArt && fileArt.name.toLowerCase().endsWith('.glb')) isGLB = true;
+            const fileHint = document.getElementById('item-hint-image').files[0];
+            const fileArt = document.getElementById('item-art-file').files[0];
+            let isGLB = fileArt && fileArt.name.toLowerCase().endsWith('.glb');
 
-                window.processFileAsBase64(fileHint, false, (hintBase64) => {
-                    window.processFileAsBase64(fileArt, isGLB, async (artBase64) => {
-                        if (fileArt && !artBase64) {
-                            btnSave.innerText = "Guardar Artefacto"; btnSave.disabled = false; return; 
-                        }
-                        try {
-                            await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
-                                id: Date.now().toString(), name: nameEl.value, hint: hintEl.value, barcode: nextBarcode, imageHint: hintBase64, imageArt: artBase64, isGLB: isGLB
-                            });
-                            nameEl.value = ''; hintEl.value = '';
-                            document.getElementById('item-hint-image').value = ''; document.getElementById('item-art-file').value = '';
-                        } catch (err) { window.showAlert("Archivo muy pesado para el plan gratuito."); } 
-                        finally { btnSave.innerText = "Guardar Artefacto"; btnSave.disabled = false; }
-                    });
+            window.processFileAsBase64(fileHint, false, (hintBase64) => {
+                window.processFileAsBase64(fileArt, isGLB, async (artBase64) => {
+                    if (fileArt && !artBase64) { btnSave.innerText = "Guardar Artefacto"; btnSave.disabled = false; return; }
+                    try {
+                        await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
+                            id: Date.now().toString(), name: nameEl.value, hint: hintEl.value, barcode: nextBarcode, imageHint: hintBase64, imageArt: artBase64, isGLB: isGLB
+                        });
+                        nameEl.value = ''; hintEl.value = '';
+                        document.getElementById('item-hint-image').value = ''; document.getElementById('item-art-file').value = '';
+                    } catch (e) { window.showAlert("El archivo es demasiado grande para Firebase."); }
+                    btnSave.innerText = "Guardar Artefacto"; btnSave.disabled = false;
                 });
-            } catch (e) { window.showAlert("Error interno."); btnSave.innerText = "Guardar Artefacto"; btnSave.disabled = false; }
+            });
         };
 
-        window.deleteArtifact = async function(docId) { if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); };
+        window.deleteArtifact = async function(docId) { await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); };
 
         window.saveNewBadge = async function() {
-            const nameEl = document.getElementById('badge-name');
-            const threshEl = document.getElementById('badge-threshold');
-            const btnSave = document.getElementById('btn-save-badge');
-
-            if(!nameEl || !threshEl || !nameEl.value || !threshEl.value) return window.showAlert("Nombre y cantidad requeridos.");
+            const nameEl = document.getElementById('badge-name'), threshEl = document.getElementById('badge-threshold'), btnSave = document.getElementById('btn-save-badge');
+            if(!nameEl.value || !threshEl.value) return window.showAlert("Faltan datos.");
             btnSave.innerText = "Guardando..."; btnSave.disabled = true;
 
-            const fileBadge = document.getElementById('badge-image').files[0];
-
-            window.processFileAsBase64(fileBadge, false, async (imgBase64) => {
-                if(window.appState.db && imgBase64) {
-                    await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { name: nameEl.value, imageUrl: imgBase64, threshold: parseInt(threshEl.value) });
-                    nameEl.value = ''; threshEl.value = ''; document.getElementById('badge-image').value = '';
-                }
+            window.processFileAsBase64(document.getElementById('badge-image').files[0], false, async (imgBase64) => {
+                await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { name: nameEl.value, imageUrl: imgBase64, threshold: parseInt(threshEl.value) });
+                nameEl.value = ''; threshEl.value = ''; document.getElementById('badge-image').value = '';
                 btnSave.innerText = "Guardar Insignia"; btnSave.disabled = false;
             });
         };
 
-        window.deleteBadge = async function(docId) { if(window.appState.db) await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges', docId)); };
+        window.deleteBadge = async function(docId) { await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges', docId)); };
 
+        // TRIGGER AL DETECTAR MARCADOR
         window.triggerFound = function(artifactId) {
             if (window.appState.foundIds.has(artifactId) || window.appState.activeARId === artifactId) return; 
-            window.appState.activeARId = artifactId;
             
+            window.appState.activeARId = artifactId;
             const item = window.appState.artifacts.find(a => a.id === artifactId);
             if(!item) return;
 
-            const nameEl = document.getElementById('ar-artifact-name');
-            const rewardEl = document.getElementById('screen-ar-reward');
-            if(nameEl) nameEl.innerText = item.name;
-            if(rewardEl) rewardEl.classList.remove('hidden');
+            document.getElementById('ar-artifact-name').innerText = item.name;
+            window.toggleModal('modal-reward', true);
             
             document.getElementById('btn-collect').onclick = async () => {
-                if(rewardEl) rewardEl.classList.add('hidden');
+                window.toggleModal('modal-reward', false);
                 window.appState.activeARId = null;
                 window.appState.foundIds.add(artifactId);
                 
-                if(window.appState.db) {
-                    await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { foundList: Array.from(window.appState.foundIds) });
-                }
-                if(window.renderPlayerClues) window.renderPlayerClues();
+                await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { foundList: Array.from(window.appState.foundIds) });
+                window.renderPlayerClues();
 
                 const newSize = window.appState.foundIds.size;
                 const earnedBadge = window.appState.badges.find(b => parseInt(b.threshold) === newSize);
                 
                 if(earnedBadge) {
-                    const badgeNameEl = document.getElementById('badge-name-display');
-                    const badgeContainer = document.getElementById('badge-display-container');
-                    const badgeModal = document.getElementById('modal-badge');
-                    
-                    if(badgeNameEl) badgeNameEl.innerText = earnedBadge.name;
-                    if(badgeContainer) badgeContainer.innerHTML = `<img src="${earnedBadge.imageUrl}" class="w-full h-full object-cover">`;
-                    if(badgeModal) badgeModal.classList.remove('hidden');
+                    document.getElementById('badge-name-display').innerText = earnedBadge.name;
+                    const bContainer = document.getElementById('badge-display-container');
+                    bContainer.innerHTML = earnedBadge.imageUrl ? `<img src="${earnedBadge.imageUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-medal text-sgx-copper text-6xl"></i>`;
+                    window.toggleModal('modal-badge', true);
                 }
             };
         };
@@ -515,26 +522,34 @@
         initApp();
     </script>
 
-    <!-- UI GENERAL, AR INJECTOR & BARCODE FIX -->
+    <!-- LOGICA FRONT-END UI -->
     <script>
-        window.showAlert = (msg) => { const a = document.getElementById('alert-message'); if(a) { a.innerText = msg; document.getElementById('alert-modal').classList.remove('hidden');} else alert(msg); };
+        window.showAlert = (msg) => { 
+            const a = document.getElementById('alert-message'); 
+            if(a) { a.innerText = msg; window.toggleModal('alert-modal', true); } else alert(msg); 
+        };
+        
         window.showScreen = (id) => { 
-            ['screen-home', 'screen-instructions', 'screen-dash', 'screen-play'].forEach(s => { const e=document.getElementById(s); if(e)e.classList.add('hidden'); }); 
+            ['screen-home', 'screen-instructions', 'screen-dash', 'screen-play'].forEach(s => { 
+                const e = document.getElementById(s); if(e) e.classList.add('hidden'); 
+            }); 
             const t = document.getElementById(id); if(t) t.classList.remove('hidden'); 
         };
+        
+        window.toggleModal = (id, show) => {
+            const m = document.getElementById(id);
+            if(m) { show ? m.classList.remove('hidden') : m.classList.add('hidden'); }
+        }
+
         window.checkAdmin = () => { if(prompt("Acceso SGX:") === "sgx2026") window.showScreen('screen-dash'); };
         
         window.switchAdminTab = (tab) => {
             ['artifacts', 'badges'].forEach(t => {
-                const el = document.getElementById(`tab-${t}`);
-                const btn = document.getElementById(`tab-btn-${t}`);
-                if(el) el.classList.add('hidden');
-                if(btn) btn.className = "flex-1 py-2 text-sm font-bold text-gray-400 rounded-md transition";
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`tab-btn-${t}`).className = "flex-1 py-2 text-sm font-bold text-gray-400 rounded-md transition";
             });
-            const el = document.getElementById(`tab-${tab}`);
-            const btn = document.getElementById(`tab-btn-${tab}`);
-            if(el) el.classList.remove('hidden');
-            if(btn) btn.className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tab}`).className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
         };
         
         window.updateHUD = () => {
@@ -542,14 +557,14 @@
             if(t && window.appState) t.innerText = window.appState.artifacts.length || 0;
             if(f && window.appState) f.innerText = window.appState.foundIds.size || 0;
         };
-        
-        window.toggleClues = (show) => { const c = document.getElementById('modal-clues'); if(c) show ? c.classList.remove('hidden') : c.classList.add('hidden'); };
 
+        // INYECCIÓN DE AR DINÁMICA (Sin bloquear iOS)
         window.startGame = () => {
-            if(!window.appState || window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos configurados en la base de datos.");
+            if(!window.appState || window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos configurados.");
             window.showScreen('screen-play');
+            window.appState.isGameActive = true;
             
-            const container = document.getElementById('ar-container');
+            const container = document.getElementById('markers-container');
             if(!container || container.innerHTML.trim() !== '') return; 
 
             let markersHTML = '';
@@ -559,10 +574,9 @@
                     if(item.isGLB) artHTML = `<a-gltf-model src="${item.imageArt}" position="0 0.5 0" scale="0.5 0.5 0.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-gltf-model>`;
                     else artHTML = `<a-image fix-aspect-ratio src="${item.imageArt}" position="0 0.5 0" animation="property: position; to: 0 0.7 0; dir: alternate; dur: 1500; loop: true"></a-image><a-ring color="#FDCC0D" radius-inner="0.9" radius-outer="1.0" rotation="-90 0 0" animation="property: rotation; to: -90 360 0; loop: true; dur: 4000;"></a-ring>`;
                 }
-                markersHTML += `<a-marker type="barcode" value="${item.barcode}" id="marker-${item.id}" ar-logic="artifactId: ${item.id}"><a-entity class="model-wrapper" rotation="-90 0 0" scale="0 0 0">${artHTML}</a-entity></a-marker>`;
+                markersHTML += `<a-marker type="barcode" value="${item.barcode}" class="dynamic-marker" ar-logic="artifactId: ${item.id}"><a-entity class="model-wrapper" rotation="-90 0 0" scale="0 0 0">${artHTML}</a-entity></a-marker>`;
             });
-
-            container.innerHTML = `<a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true" device-orientation-permission-ui="enabled: false" vr-mode-ui="enabled: false"><a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>${markersHTML}<a-entity camera></a-entity></a-scene>`;
+            container.innerHTML = markersHTML;
         };
 
         window.renderAdminList = () => {
@@ -575,16 +589,16 @@
             const baseUrl = window.location.href.split('?')[0]; 
             window.appState.artifacts.forEach(item => {
                 const codeNumber = item.barcode !== undefined ? item.barcode : 0; 
-                // ✨ FIX MAESTRO: CDN 100% SEGURO DE JSDELIVR ✨
-                const barcodeImgUrl = `https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.2/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
+                // URL ORIGINAL OFICIAL (GitHub Pages, 100% segura y sin bloqueos de navegador)
+                const barcodeImgUrl = `https://ar-js-org.github.io/AR.js/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
                 
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
                         <div class="flex justify-between items-start mb-3">
-                            <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-sgx-yellow">Barcode ID: ${codeNumber}</p></div>
+                            <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-sgx-yellow">Símbolo ID: ${codeNumber}</p></div>
                             <button onclick="window.deleteArtifact('${item.docId}')" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
                         </div>
-                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}', ${codeNumber})" class="w-full bg-white text-black font-bold py-2 rounded text-sm hover:bg-gray-200"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta AR</button>
+                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}', ${codeNumber})" class="w-full bg-white text-black font-bold py-2 rounded text-sm"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta AR</button>
                     </div>
                 `;
             });
@@ -595,36 +609,24 @@
             if (!list) return;
             list.innerHTML = '';
             if(!window.appState || window.appState.badges.length === 0) return;
-            
             window.appState.badges.forEach(badge => {
-                const imgHTML = badge.imageUrl 
-                    ? `<img src="${badge.imageUrl}" class="w-10 h-10 rounded-full object-cover border border-sgx-copper bg-white">` 
-                    : `<i class="fa-solid fa-medal text-sgx-copper text-xl"></i>`;
-
+                const imgHTML = badge.imageUrl ? `<img src="${badge.imageUrl}" class="w-10 h-10 rounded-full object-cover">` : `<i class="fa-solid fa-medal text-sgx-copper text-xl"></i>`;
                 list.innerHTML += `
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex justify-between items-center">
-                        <div class="flex items-center space-x-3">
-                            ${imgHTML}
-                            <div><h4 class="font-bold text-white text-sm">${badge.name}</h4><p class="text-xs text-sgx-yellow font-bold">A los ${badge.threshold} obj.</p></div>
-                        </div>
-                        <button onclick="window.deleteBadge('${badge.docId}')" class="text-red-500 hover:text-red-400 p-2"><i class="fa-solid fa-trash"></i></button>
+                        <div class="flex items-center space-x-3">${imgHTML}<div><h4 class="font-bold text-white text-sm">${badge.name}</h4><p class="text-xs text-sgx-yellow font-bold">Requiere: ${badge.threshold}</p></div></div>
+                        <button onclick="window.deleteBadge('${badge.docId}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 `;
             });
         };
 
         window.showPrintCard = (name, qrUrl, barcodeUrl, codeNumber) => {
-            const nameEl = document.getElementById('print-name'), imgEl = document.getElementById('print-barcode-img'), idEl = document.getElementById('print-barcode-id'), qrEl = document.getElementById('print-qr'), modal = document.getElementById('modal-print-card');
-            
-            if (nameEl && imgEl && idEl && qrEl && modal) {
-                nameEl.innerText = name; 
-                idEl.innerText = codeNumber;
-                imgEl.setAttribute('src', barcodeUrl); 
-                
-                qrEl.innerHTML = '';
-                new QRCode(qrEl, { text: qrUrl, width: 80, height: 80, colorDark : "#0F172A", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.L });
-                modal.classList.remove('hidden');
-            }
+            document.getElementById('print-name').innerText = name; 
+            document.getElementById('print-barcode-id').innerText = codeNumber;
+            document.getElementById('print-barcode-img').setAttribute('src', barcodeUrl); 
+            document.getElementById('print-qr').innerHTML = '';
+            new QRCode(document.getElementById('print-qr'), { text: qrUrl, width: 80, height: 80, colorDark: "#0F172A", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.L });
+            window.toggleModal('modal-print-card', true);
         };
 
         window.renderPlayerClues = () => {
@@ -635,7 +637,7 @@
                 const found = window.appState.foundIds.has(item.id);
                 list.innerHTML += `
                     <div class="bg-gray-800 rounded-xl overflow-hidden border ${found ? 'border-sgx-yellow opacity-60' : 'border-gray-700'} relative">
-                        ${found ? '<div class="absolute inset-0 bg-sgx-dark bg-opacity-80 flex items-center justify-center z-10"><i class="fa-solid fa-check-circle text-sgx-yellow text-6xl shadow-lg"></i></div>' : ''}
+                        ${found ? '<div class="absolute inset-0 bg-sgx-dark bg-opacity-80 flex items-center justify-center z-10"><i class="fa-solid fa-check-circle text-sgx-yellow text-6xl"></i></div>' : ''}
                         ${item.imageHint ? `<img src="${item.imageHint}" class="w-full h-32 object-cover">` : `<div class="w-full h-24 bg-gray-900"></div>`}
                         <div class="p-4">
                             <h4 class="font-bold text-white text-sm">${item.name}</h4>
