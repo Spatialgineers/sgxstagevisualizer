@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SGX.Stage | Kinetic Visualizer v3.3</title>
+    <title>SGX.Stage | Kinetic Visualizer v3.4</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts -->
@@ -53,7 +53,7 @@
         <div class="flex justify-between items-start">
             <div class="glass-panel p-4 rounded-br-3xl border-l-4 border-l-sgx-yellow">
                 <h1 class="text-3xl sm:text-5xl font-bold tracking-[0.2em] text-sgx-yellow glitch-text" data-text="SGX.STAGE">SGX.STAGE</h1>
-                <p class="font-tech text-[10px] text-gray-400 mt-1 uppercase tracking-[0.3em]">Module: Kinetic_Engine_v3.3</p>
+                <p class="font-tech text-[10px] text-gray-400 mt-1 uppercase tracking-[0.3em]">Module: Kinetic_Engine_v3.4</p>
             </div>
             <div class="text-right glass-panel px-4 py-2 rounded-bl-3xl border-r-4 border-r-sgx-yellow hidden sm:block">
                 <p class="font-tech text-[10px] text-sgx-yellow uppercase tracking-tighter">Caribbean_Computing_Node</p>
@@ -192,6 +192,7 @@
         uniform float uNoiseAmpBase;
         uniform float uAudioSens;
         uniform vec2 uMouse;
+        uniform float uClickExplode; // Interacción extra
         varying vec2 vUv;
         varying vec3 vNormal;
         varying vec3 vPosition;
@@ -224,12 +225,18 @@
 
         void main() {
             vUv = uv;
-            vNormal = normal;
-            float noiseFreq = 0.6 + (uMouse.x * 0.3);
+            // Interpolar normales para un sombreado más suave
+            vNormal = normalize(normalMatrix * normal);
+            // Hacer la frecuencia de ruido menor para transiciones más suaves
+            float noiseFreq = 0.3 + (uMouse.x * 0.2);
             float noiseAmp = uNoiseAmpBase + (uAudioData * uAudioSens);
-            vec3 noisePos = vec3(position.x * noiseFreq + uTime * 0.2, position.y * noiseFreq + uTime * 0.2, position.z * noiseFreq);
+            vec3 noisePos = vec3(position.x * noiseFreq + uTime * 0.1, position.y * noiseFreq + uTime * 0.1, position.z * noiseFreq);
             float noiseVal = snoise(noisePos) * noiseAmp;
-            vec3 newPosition = position + normal * noiseVal;
+            
+            // Añadir el efecto de explosión al hacer click
+            float explodeEffect = snoise(position * 2.0 + uTime) * uClickExplode;
+            
+            vec3 newPosition = position + normal * (noiseVal + explodeEffect);
             vPosition = newPosition;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
         }
@@ -277,10 +284,17 @@
         }
 
         void main() {
-            // Mezcla de colores global basada en ruido Simplex 3D para cobertura total
-            float noiseVal = snoise(vPosition * 0.15 + uTime * 0.2) * 0.5 + 0.5;
-            vec3 color = mix(uColor1, uColor2, noiseVal);
-            color = mix(color, uColor3, cos(vPosition.y * 0.5 - uTime * 0.4) * uAudioData);
+            // Mezcla de colores global basada en ruido Simplex 3D para cobertura total y suave
+            // Ajustar la escala de posición para que el ruido cubra todo el objeto de manera más difusa
+            float noiseVal1 = snoise(vPosition * 0.05 + uTime * 0.1) * 0.5 + 0.5;
+            float noiseVal2 = snoise(vPosition * 0.08 - uTime * 0.15) * 0.5 + 0.5;
+            
+            // Usar smoothstep para transiciones de color más suaves
+            vec3 color = mix(uColor1, uColor2, smoothstep(0.2, 0.8, noiseVal1));
+            
+            // Integrar el color de acento de manera más global, modulado por el audio y la posición
+            float accentMix = smoothstep(0.3, 0.9, noiseVal2) * (0.3 + uAudioData * 0.7);
+            color = mix(color, uColor3, accentMix);
             
             if(uHasTex) {
                 // TRIPLANAR MAPPING: Proyecta la textura desde los 3 ejes (X, Y, Z) ignorando UVs rotos
@@ -312,12 +326,17 @@
         let audioContext, analyser, dataArray, isAudioInitialized = false;
         let mouse = new THREE.Vector2(), targetMouse = new THREE.Vector2();
         let windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
+        let clickExplodeTarget = 0.0;
         
-        // Physics Config
+        // Config Physics
         let isRotating = true;
         let rotationAxis = { x: false, y: true, z: false };
         let rotationSpeed = 0.01;
         let assetScale = 1.0;
+        let currentMorphology = 'reactor';
+        
+        // Lemniscata animation state
+        let lemniscataAnimParam = 0;
 
         const clock = new THREE.Clock();
         const el = (id) => document.getElementById(id);
@@ -350,7 +369,8 @@
                 uNoiseAmpBase: { value: 0.5 },
                 uAudioSens: { value: 2.0 }, uMouse: { value: new THREE.Vector2(0, 0) },
                 uDensity: { value: 1.0 },
-                uTexMask: { value: null }, uHasTex: { value: false }, uTexScale: { value: 0.1 }
+                uTexMask: { value: null }, uHasTex: { value: false }, uTexScale: { value: 0.1 },
+                uClickExplode: { value: 0.0 }
             };
 
             reactiveMaterial = new THREE.ShaderMaterial({
@@ -401,19 +421,65 @@
                 safeSetText('status-text', 'Live Synchronized');
             } catch (err) { safeSetText('status-text', 'Access Denied'); }
         }
+        
+        function updateLemniscataGeometry(timeParam) {
+            // Eliminar la malla de lemniscata anterior
+            if (activeGroup.children.length > 0) {
+                 // Si tenemos wireframe, es el segundo hijo
+                 if(activeGroup.children.length > 1) {
+                     activeGroup.children[0].geometry.dispose();
+                     activeGroup.children[1].geometry.dispose();
+                 } else {
+                     activeGroup.children[0].geometry.dispose();
+                 }
+            }
+
+            const lemniscateFunc = (u, v, target) => {
+                u *= Math.PI * 2;
+                const t = u;
+                const scale = 15.0;
+                // Ecuación paramétrica de la lemniscata de Bernoulli en 3D
+                const x = (scale * Math.cos(t)) / (1.0 + Math.pow(Math.sin(t), 2.0));
+                const y = (scale * Math.sin(t) * Math.cos(t)) / (1.0 + Math.pow(Math.sin(t), 2.0));
+                
+                // Tubing logic con animación basada en timeParam
+                const phi = v * Math.PI * 2;
+                const r = 2.0 + Math.sin(u * 4.0 + timeParam * 2.0) * 0.5; // Tubo animado que pulsa
+                target.set(x + r * Math.cos(phi), y + r * Math.sin(phi), r * Math.sin(phi + u) + Math.sin(t + timeParam)*3.0); // Z animada
+            };
+            
+            const newGeo = new THREE.ParametricBufferGeometry(lemniscateFunc, 128, 32);
+            
+            // Suavizar las normales después de generar la geometría paramétrica
+            newGeo.computeVertexNormals();
+
+            if (activeGroup.children.length > 0) {
+                activeGroup.children[0].geometry = newGeo;
+                if(coreWireframe) {
+                    const wireGeo = newGeo.clone();
+                    // Escalar ligeramente el wireframe
+                    wireGeo.scale(1.02, 1.02, 1.02);
+                    activeGroup.children[1].geometry = wireGeo;
+                }
+            }
+        }
 
         function changeMorphology(type) {
+            currentMorphology = type;
             while(activeGroup.children.length > 0) activeGroup.remove(activeGroup.children[0]);
             let newGeo, newWireGeo;
             switch(type) {
-                case 'reactor': newGeo = new THREE.IcosahedronGeometry(10, 64); newWireGeo = new THREE.IcosahedronGeometry(10.2, 12); break;
+                case 'reactor': 
+                    // Aumentado el detalle (128) para que sea más smooth
+                    newGeo = new THREE.IcosahedronGeometry(10, 128); 
+                    newWireGeo = new THREE.IcosahedronGeometry(10.2, 16); 
+                    break;
                 case 'gear':
                     const gearShape = new THREE.Shape();
-                    const teeth = 12, inner = 7, outer = 11, chamfer = 0.5;
+                    const teeth = 12, inner = 7, outer = 11;
                     const step = Math.PI * 2 / teeth;
                     for (let i = 0; i < teeth; i++) {
                         const a = i * step;
-                        const aNext = (i + 1) * step;
                         // Diseño trapezoidal (chamfered)
                         if (i === 0) gearShape.moveTo(Math.cos(a - 0.1)*inner, Math.sin(a - 0.1)*inner);
                         gearShape.lineTo(Math.cos(a + 0.1)*inner, Math.sin(a + 0.1)*inner);
@@ -423,30 +489,45 @@
                     }
                     gearShape.closePath();
                     const hole = new THREE.Path(); hole.absarc(0, 0, 3.5, 0, Math.PI * 2, true); gearShape.holes.push(hole);
-                    newGeo = new THREE.ExtrudeGeometry(gearShape, { depth: 4, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, curveSegments: 64 });
-                    newWireGeo = newGeo.clone(); break;
-                case 'triangle': newGeo = new THREE.TorusGeometry(12, 5, 3, 100); newWireGeo = new THREE.TorusGeometry(12.3, 5.1, 3, 40); break;
-                case 'mobius': // Lemniscata Tubing
-                    const lemniscateFunc = (u, v, target) => {
-                        u *= Math.PI * 2;
-                        const t = u;
-                        const scale = 15.0;
-                        const x = (scale * Math.cos(t)) / (1.0 + Math.pow(Math.sin(t), 2.0));
-                        const y = (scale * Math.sin(t) * Math.cos(t)) / (1.0 + Math.pow(Math.sin(t), 2.0));
-                        
-                        // Tubing logic
-                        const phi = v * Math.PI * 2;
-                        const r = 2.0;
-                        target.set(x + r * Math.cos(phi), y + r * Math.sin(phi), r * Math.sin(phi + u));
-                    };
-                    newGeo = new THREE.ParametricBufferGeometry(lemniscateFunc, 128, 32); newWireGeo = newGeo.clone(); break;
-                case 'knot': newGeo = new THREE.TorusKnotGeometry(8, 3, 200, 50); newWireGeo = new THREE.TorusKnotGeometry(8.3, 3.1, 100, 20); break;
-                case 'pillar': newGeo = new THREE.CylinderGeometry(7, 7, 60, 64, 32); newWireGeo = new THREE.CylinderGeometry(7.2, 7.2, 60.2, 16, 8); break;
+                    // Aumentado curveSegments y bevelSegments para suavidad
+                    newGeo = new THREE.ExtrudeGeometry(gearShape, { depth: 4, bevelEnabled: true, bevelThickness: 0.8, bevelSize: 0.8, bevelSegments: 5, curveSegments: 64 });
+                    newGeo.computeVertexNormals(); // Forzar normales suaves
+                    newWireGeo = newGeo.clone(); 
+                    break;
+                case 'triangle': 
+                    // Aumentado el detalle tubular para suavidad
+                    newGeo = new THREE.TorusGeometry(12, 5, 6, 128); 
+                    newGeo.computeVertexNormals();
+                    newWireGeo = new THREE.TorusGeometry(12.3, 5.1, 6, 64); 
+                    break;
+                case 'mobius': 
+                    // La geometría se generará en el loop de animación
+                    lemniscataAnimParam = 0;
+                    const dummyGeo = new THREE.BufferGeometry();
+                    newGeo = dummyGeo;
+                    newWireGeo = dummyGeo.clone();
+                    break;
+                case 'knot': 
+                    // Aumentado detalle
+                    newGeo = new THREE.TorusKnotGeometry(8, 3, 300, 64); 
+                    newWireGeo = new THREE.TorusKnotGeometry(8.3, 3.1, 150, 32); 
+                    break;
+                case 'pillar': 
+                    // Aumentado detalle
+                    newGeo = new THREE.CylinderGeometry(7, 7, 60, 128, 64); 
+                    newWireGeo = new THREE.CylinderGeometry(7.2, 7.2, 60.2, 32, 16); 
+                    break;
             }
+            
             const mesh = new THREE.Mesh(newGeo, reactiveMaterial);
             activeGroup.add(mesh);
             coreWireframe = new THREE.Mesh(newWireGeo, new THREE.MeshBasicMaterial({ color: 0xFFFFFF, wireframe: true, transparent: true, opacity: 0.05 }));
             activeGroup.add(coreWireframe);
+            
+            if (type === 'mobius') {
+                updateLemniscataGeometry(0);
+            }
+            
             updateGroupScale();
         }
 
@@ -462,7 +543,15 @@
             const ui = el('ui-container'), btn = el('toggle-ui-btn');
             if(btn && ui) { btn.onclick = () => { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; }; }
             document.addEventListener('keydown', (e) => { if((e.key.toLowerCase() === 'h' || e.key === 'Escape') && ui && btn) { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; } });
-            document.addEventListener('click', () => { if (audioContext && audioContext.state === 'suspended') audioContext.resume(); });
+            
+            // Interacción: Efecto de explosión al hacer clic
+            document.addEventListener('click', (e) => { 
+                if (audioContext && audioContext.state === 'suspended') audioContext.resume(); 
+                // No explotar si se hace clic en la UI
+                if(!e.target.closest('.interactive-element')) {
+                    clickExplodeTarget = 5.0; // Intensidad de la explosión
+                }
+            });
 
             if(el('audio-btn')) el('audio-btn').onclick = (e) => { e.stopPropagation(); if(!isAudioInitialized) initAudio(); };
             if(el('ctrl-distortion')) el('ctrl-distortion').oninput = (e) => { uniforms.uNoiseAmpBase.value = parseFloat(e.target.value); safeSetText('val-distortion', e.target.value); };
@@ -494,9 +583,16 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     new THREE.GLTFLoader().parse(e.target.result, '', (gltf) => {
+                        currentMorphology = 'custom_glb';
                         while(activeGroup.children.length > 0) activeGroup.remove(activeGroup.children[0]);
                         const model = gltf.scene;
-                        model.traverse((child) => { if (child.isMesh) { child.material = reactiveMaterial; } });
+                        model.traverse((child) => { 
+                            if (child.isMesh) { 
+                                child.material = reactiveMaterial; 
+                                // Asegurar que el modelo use smooth shading si es posible
+                                child.geometry.computeVertexNormals();
+                            } 
+                        });
                         const box = new THREE.Box3().setFromObject(model);
                         model.position.sub(box.getCenter(new THREE.Vector3()));
                         const s = 40 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
@@ -535,6 +631,13 @@
             const time = clock.getElapsedTime();
             safeSetText('clock-display', new Date().toTimeString().split(' ')[0]);
             
+            // Decaimiento del efecto de explosión
+            if(clickExplodeTarget > 0) {
+                clickExplodeTarget -= 0.1;
+                if(clickExplodeTarget < 0) clickExplodeTarget = 0;
+            }
+            uniforms.uClickExplode.value = clickExplodeTarget;
+            
             if (isAudioInitialized && analyser) {
                 analyser.getByteFrequencyData(dataArray);
                 let sum = 0; for(let i=0; i<15; i++) sum += dataArray[i];
@@ -555,6 +658,12 @@
                 if(rotationAxis.x) activeGroup.rotation.x += rotationSpeed;
                 if(rotationAxis.y) activeGroup.rotation.y += rotationSpeed;
                 if(rotationAxis.z) activeGroup.rotation.z += rotationSpeed;
+            }
+            
+            // Animación eterna de la Lemniscata
+            if (currentMorphology === 'mobius') {
+                lemniscataAnimParam += 0.02 + (uniforms.uAudioData.value * 0.05);
+                updateLemniscataGeometry(lemniscataAnimParam);
             }
 
             if(Math.round(time*10)%5===0) safeSetText('fps-counter', Math.round(1/clock.getDelta()));
