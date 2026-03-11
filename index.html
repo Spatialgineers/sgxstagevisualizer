@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>SGX AR Hunt</title>
 
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
         :root {
@@ -17,39 +16,28 @@
             --sgx-light: #F8FAFC;
         }
         
-        /* Reseteo agresivo para evitar scrollbars que rompen el canvas en iOS */
         body, html {
-            margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
             background-color: var(--sgx-dark); font-family: 'Segoe UI', Roboto, sans-serif;
             color: var(--sgx-light); -webkit-user-select: none; user-select: none;
         }
         
-        /* CAPAS UI: 
-           Todo va encima de la escena de AR. Nunca usamos display:none en la cámara.
-        */
+        /* Capas de Interfaz */
         .ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             background: var(--sgx-dark); z-index: 1000;
-            transition: opacity 0.4s ease; overflow-y: auto; overflow-x: hidden;
+            transition: opacity 0.3s ease; overflow-y: auto; overflow-x: hidden;
         }
         
-        .ui-hidden {
-            opacity: 0 !important;
-            pointer-events: none !important;
-        }
-
-        .ui-transparent {
-            background: transparent !important;
-            pointer-events: none;
-        }
-
+        .ui-hidden { opacity: 0 !important; pointer-events: none !important; }
+        .ui-transparent { background: transparent !important; pointer-events: none; }
         .pointer-events-auto { pointer-events: auto; }
 
         h1, h2, h3 { color: var(--sgx-yellow); text-align: center; margin-bottom: 10px; }
         p { text-align: center; max-width: 85%; line-height: 1.5; margin-bottom: 20px;}
         
-        .btn { background-color: var(--sgx-yellow); color: var(--sgx-dark); border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 10px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.1s; }
+        .btn { background-color: var(--sgx-yellow); color: var(--sgx-dark); border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 10px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .btn:active { transform: scale(0.95); }
         .btn-blue { background-color: var(--sgx-blue); color: var(--sgx-light); }
         .btn-close { position: absolute; top: 20px; right: 20px; padding: 10px 15px; font-size: 14px; }
@@ -59,7 +47,7 @@
         .form-group label { font-weight: bold; margin-bottom: 5px; color: var(--sgx-blue); }
         .form-group input, .form-group textarea, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; }
         .card-preview { border: 2px dashed var(--sgx-blue); padding: 15px; border-radius: 8px; text-align: center; margin-top: 15px; background: white; }
-        .qr-img { width: 100px; height: 100px; margin: 10px; image-rendering: pixelated; }
+        .qr-img { width: 100px; height: 100px; margin: 10px; object-fit: contain; }
         
         .hud-container { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; box-sizing: border-box; }
         .hud-top { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: auto; }
@@ -73,7 +61,6 @@
     </style>
 
     <script>
-        // COMPONENTES A-FRAME
         AFRAME.registerComponent('proportional-image', {
             schema: { src: { type: 'string' } },
             init: function () {
@@ -87,28 +74,22 @@
         });
 
         AFRAME.registerComponent('pop-out', {
-            init: function () {
-                this.el.setAttribute('scale', '0 0 0');
-            },
+            init: function () { this.el.setAttribute('scale', '0 0 0'); },
             play: function() {
-                this.el.setAttribute('animation', {
-                    property: 'scale',
-                    to: '1.5 1.5 1.5',
-                    dur: 800,
-                    easing: 'easeOutElastic'
-                });
+                this.el.setAttribute('animation', { property: 'scale', to: '1.5 1.5 1.5', dur: 800, easing: 'easeOutElastic' });
             }
         });
 
-        AFRAME.registerComponent('marker-handler', {
+        // Eventos nativos de MindAR
+        AFRAME.registerComponent('mindar-handler', {
             schema: { id: { type: 'string' } },
             init: function () {
-                this.el.addEventListener('markerFound', () => {
+                this.el.addEventListener('targetFound', () => {
                     window.appLogic.onMarkerFound(this.data.id);
                     const child = this.el.firstElementChild;
                     if(child) child.components['pop-out'].play();
                 });
-                this.el.addEventListener('markerLost', () => {
+                this.el.addEventListener('targetLost', () => {
                     window.appLogic.onMarkerLost();
                 });
             }
@@ -118,24 +99,24 @@
 <body>
 
     <a-scene 
-        embedded 
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" 
-        renderer="logarithmicDepthBuffer: true;" 
-        vr-mode-ui="enabled: false"
+        mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind; autoStart: false;" 
+        color-space="sRGB" 
+        renderer="colorManagement: true, physicallyCorrectLights" 
+        vr-mode-ui="enabled: false" 
         device-orientation-permission-ui="enabled: false">
         
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
         <a-entity id="dynamic-markers"></a-entity>
-        <a-entity camera></a-entity>
     </a-scene>
 
     <div id="screen-loading" class="ui-layer">
         <h1>SGX AR Hunt</h1>
-        <p>Cargando sistemas...</p>
+        <p>Conectando con la base de datos...</p>
     </div>
 
     <div id="screen-menu" class="ui-layer ui-hidden">
         <h1>Búsqueda de Tesoros</h1>
-        <p>Encuentra los artefactos escondidos escaneando los códigos AR.</p>
+        <p>Apunta tu cámara a las imágenes clave para descubrir los artefactos.</p>
         <button class="btn" onclick="window.appLogic.startGame()">Jugar Ahora</button>
         <button class="btn btn-blue" onclick="window.appLogic.showInstructions()">Instrucciones</button>
         <div id="admin-lock" onclick="window.appLogic.promptAdmin()">🔒</div>
@@ -143,8 +124,8 @@
 
     <div id="screen-instructions" class="ui-layer ui-hidden">
         <h2>Instrucciones</h2>
-        <p>1. Busca las tarjetas de la cacería en el evento.</p>
-        <p>2. Apunta la cámara al Barcode cuadrado.</p>
+        <p>1. Busca las tarjetas en el evento.</p>
+        <p>2. Apunta la cámara a la imagen completa de la tarjeta.</p>
         <p>3. ¡El arte saltará! Toca "Recolectar".</p>
         <button class="btn btn-blue" onclick="window.appLogic.showMenu()">Volver</button>
     </div>
@@ -187,7 +168,7 @@
                     <input type="text" id="art-name" placeholder="Ej. Reliquia Taína">
                 </div>
                 <div class="form-group">
-                    <label>Pista (Texto):</label>
+                    <label>Pista:</label>
                     <textarea id="art-clue" rows="2"></textarea>
                 </div>
                 <div class="form-group">
@@ -206,7 +187,7 @@
             </div>
 
             <div id="tab-cards" class="ui-hidden">
-                <p style="font-size: 12px; color: #666;">Imprime estas tarjetas. Extraemos el Barcode directamente del repositorio oficial para garantizar que AR.js lo lea perfecto.</p>
+                <p style="font-size: 12px; color: #666;">Para este demo, usa la imagen objetivo de prueba de MindAR. Escanea la imagen de la derecha desde otra pantalla.</p>
                 <div id="admin-cards-list" style="display:flex; flex-direction:column; gap:20px;"></div>
             </div>
 
@@ -253,6 +234,7 @@
         let collectedIds = [];
         let currentDetectedMarker = null;
 
+        // Comprimir Imágenes
         function compressImage(file, quality = 0.6, maxWidth = 400) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -274,6 +256,7 @@
             });
         }
 
+        // Leer GLB
         function readGLB(file) {
             return new Promise((resolve, reject) => {
                 if (file.size > 850 * 1024) {
@@ -307,26 +290,31 @@
                 const markersContainer = document.getElementById('dynamic-markers');
                 markersContainer.innerHTML = '';
 
+                // En MindAR usamos targetIndex (0 = primera imagen del archivo compilado)
+                let index = 0; 
                 artSnapshot.forEach(doc => {
                     const data = doc.data();
                     artifactsData.push({ id: doc.id, ...data });
                     
-                    const markerEl = document.createElement('a-marker');
-                    markerEl.setAttribute('type', 'barcode');
-                    markerEl.setAttribute('value', data.barcodeId);
-                    markerEl.setAttribute('marker-handler', `id: ${doc.id}`);
-                    
-                    const artEl = document.createElement(data.type === 'glb' ? 'a-gltf-model' : 'a-image');
-                    artEl.setAttribute('src', data.artBase64);
-                    artEl.setAttribute('pop-out', '');
-                    artEl.setAttribute('rotation', '-90 0 0');
+                    // Solo el primer artefacto usará el Index 0 para la prueba de concepto
+                    if(index === 0) {
+                        const markerEl = document.createElement('a-entity');
+                        markerEl.setAttribute('mindar-image-target', `targetIndex: 0`);
+                        markerEl.setAttribute('mindar-handler', `id: ${doc.id}`);
+                        
+                        const artEl = document.createElement(data.type === 'glb' ? 'a-gltf-model' : 'a-image');
+                        artEl.setAttribute('src', data.artBase64);
+                        artEl.setAttribute('pop-out', '');
+                        artEl.setAttribute('rotation', '0 0 0'); // MindAR ancla de pie por defecto
 
-                    if (data.type === 'image') {
-                        artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
+                        if (data.type === 'image') {
+                            artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
+                        }
+
+                        markerEl.appendChild(artEl);
+                        markersContainer.appendChild(markerEl);
                     }
-
-                    markerEl.appendChild(artEl);
-                    markersContainer.appendChild(markerEl);
+                    index++;
                 });
 
                 const badgeSnapshot = await getDocs(collection(db, "badges"));
@@ -366,27 +354,28 @@
                 container.innerHTML = '';
                 const appUrl = window.location.href.split('?')[0]; 
                 
-                artifactsData.forEach(art => {
-                    // Magia: Obtenemos la imagen exacta del repositorio de AR.js para garantizar escaneo perfecto
-                    const barcodeImgUrl = `https://raw.githack.com/AR-js-org/AR.js/master/three.js/examples/marker-training/examples/pattern-images/barcode-3x3/${art.barcodeId}.png`;
+                // Imagen default de MindAR
+                const mindARImage = "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png";
 
+                if(artifactsData.length > 0) {
+                    const art = artifactsData[0]; // Solo mostramos 1 en este setup por ahora
                     container.innerHTML += `
                         <div class="card-preview">
                             <h4 style="color: var(--sgx-blue); margin:0 0 10px 0;">${art.name}</h4>
-                            <p style="margin: 0 0 10px 0; color: #333; font-size:14px;">Barcode ID: <strong>${art.barcodeId}</strong></p>
+                            <p style="margin: 0 0 10px 0; color: #666; font-size:12px;">Pista: <i>${art.clue}</i></p>
                             <div style="display:flex; justify-content: space-around; align-items:center;">
                                 <div>
                                     <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">QR (Link App)</p>
                                     <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(appUrl)}" alt="QR">
                                 </div>
                                 <div>
-                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">Barcode (Imprimir)</p>
-                                    <img class="qr-img" src="${barcodeImgUrl}" alt="Barcode ${art.barcodeId}">
+                                    <p style="font-size: 11px; color: #888; margin: 0 0 5px 0;">Imagen a Escanear</p>
+                                    <img class="qr-img" src="${mindARImage}" alt="MindAR Target">
                                 </div>
                             </div>
                         </div>
                     `;
-                });
+                }
             },
 
             switchScreen: function(hideId, showId) {
@@ -395,11 +384,22 @@
             },
             showMenu: function() {
                 document.querySelectorAll('.ui-layer').forEach(el => el.classList.add('ui-hidden'));
+                
+                // Detener cámara si está corriendo
+                const sceneEl = document.querySelector('a-scene');
+                if (sceneEl.systems["mindar-image-system"]) {
+                    sceneEl.systems["mindar-image-system"].stop();
+                }
+                
                 document.getElementById('screen-menu').classList.remove('ui-hidden');
             },
             startGame: function() {
                 document.querySelectorAll('.ui-layer').forEach(el => el.classList.add('ui-hidden'));
                 document.getElementById('screen-hud').classList.remove('ui-hidden');
+                
+                // Iniciar motor MindAR y pedir cámara
+                const sceneEl = document.querySelector('a-scene');
+                sceneEl.systems["mindar-image-system"].start();
             },
             showInstructions: function() { this.switchScreen('screen-menu', 'screen-instructions'); },
             showProfile: function() { document.getElementById('screen-profile').classList.remove('ui-hidden'); },
@@ -409,6 +409,10 @@
                 const pwd = prompt("Clave:");
                 if (pwd === "sgx2026") {
                     document.querySelectorAll('.ui-layer').forEach(el => el.classList.add('ui-hidden'));
+                    
+                    const sceneEl = document.querySelector('a-scene');
+                    if (sceneEl.systems["mindar-image-system"]) sceneEl.systems["mindar-image-system"].stop();
+
                     document.getElementById('screen-admin').classList.remove('ui-hidden');
                 } else if (pwd !== null) alert("Clave incorrecta.");
             },
@@ -459,13 +463,11 @@
                     if (type === 'image') artBase64 = await compressImage(artFile, 0.8, 800);
                     else artBase64 = await readGLB(artFile);
 
-                    const barcodeId = artifactsData.length; 
-
                     await addDoc(collection(db, "artifacts"), {
-                        name, clue, type, barcodeId, photoBase64, artBase64
+                        name, clue, type, photoBase64, artBase64
                     });
 
-                    alert("Guardado exitoso.");
+                    alert("Guardado exitoso. Ve a la pestaña de tarjetas para probarlo.");
                     
                     document.getElementById('art-name').value = '';
                     document.getElementById('art-clue').value = '';
