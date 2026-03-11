@@ -3,341 +3,230 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SGX AR Scavenger Hunt</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- FontAwesome y Google Fonts -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    
-    <!-- A-Frame y AR.js (Versiones ultra estables) -->
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <title>SGX AR Hunt</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
-    <!-- Configuración SGX Brand Guide -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        sgx: { yellow: '#FDCC0D', blue: '#32527B', copper: '#B87333', dark: '#0F172A' }
-                    },
-                    fontFamily: { heading: ['Orbitron', 'sans-serif'], body: ['Inter', 'sans-serif'] }
-                }
-            }
-        }
-    </script>
-
     <style>
-        /* BASE PURA: Sin interferir con la cámara de AR.js */
-        html, body { 
-            margin: 0; padding: 0; width: 100%; height: 100%; 
-            overflow: hidden; background-color: #000; 
-            -webkit-user-select: none; user-select: none;
+        :root {
+            --sgx-yellow: #FDCC0D;
+            --sgx-blue: #32527B;
+            --sgx-dark: #0F172A;
+            --sgx-light: #F8FAFC;
         }
-
-        /* CAPA DE UI: Fija sobre la cámara, maneja sus propios scrolls sin afectar el body */
-        #ui-layer {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 9999; pointer-events: none;
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background-color: var(--sgx-dark); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--sgx-light); -webkit-user-select: none; user-select: none;
         }
-
-        /* Paneles de la Interfaz (Home, Admin, etc.) */
-        .ui-panel {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #0F172A; pointer-events: auto;
-            overflow-y: auto; -webkit-overflow-scrolling: touch;
-        }
-
-        /* Cuando estamos jugando, el panel se vuelve transparente para ver la cámara */
-        .ui-panel.transparent { background-color: transparent !important; pointer-events: none; overflow: hidden; }
+        /* Fix for iOS Camera */
+        video { width: 100% !important; height: 100% !important; object-fit: cover !important; position: absolute !important; top: 0 !important; left: 0 !important; z-index: -1; }
+        .a-canvas { width: 100% !important; height: 100% !important; }
         
-        /* Botones interactivos sobre fondo transparente */
-        .interactive-element { pointer-events: auto; }
+        /* UI Layers */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; background: var(--sgx-dark); transition: opacity 0.3s; }
+        .hidden { display: none !important; opacity: 0; pointer-events: none; }
+        .overlay { background: transparent; pointer-events: none; z-index: 20; justify-content: space-between; padding: 20px; box-sizing: border-box; }
+        .pointer-events-auto { pointer-events: auto; }
 
-        .hidden { display: none !important; }
+        /* Components */
+        h1, h2, h3 { color: var(--sgx-yellow); text-align: center; margin-bottom: 10px; }
+        p { text-align: center; max-width: 80%; line-height: 1.5; }
+        .btn { background-color: var(--sgx-yellow); color: var(--sgx-dark); border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 10px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.1s; }
+        .btn:active { transform: scale(0.95); }
+        .btn-blue { background-color: var(--sgx-blue); color: var(--sgx-light); }
+        .btn-close { position: absolute; top: 20px; right: 20px; padding: 10px 15px; font-size: 14px; }
+        
+        /* Admin Dashboard */
+        .admin-panel { background: var(--sgx-light); color: var(--sgx-dark); width: 90%; max-width: 500px; height: 85%; border-radius: 12px; padding: 20px; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+        .form-group label { font-weight: bold; margin-bottom: 5px; color: var(--sgx-blue); }
+        .form-group input, .form-group textarea, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; }
+        .card-preview { border: 2px dashed var(--sgx-blue); padding: 15px; border-radius: 8px; text-align: center; margin-top: 15px; background: white; }
+        .qr-img { width: 100px; height: 100px; margin: 10px; }
+        
+        /* AR HUD */
+        .hud-top { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: auto; }
+        .hud-bottom { width: 100%; display: flex; justify-content: center; margin-bottom: 20px; pointer-events: auto; }
+        .badge-count { background: var(--sgx-blue); padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 18px; border: 2px solid var(--sgx-yellow); }
+        #collect-btn { font-size: 22px; padding: 20px 40px; background-color: #10B981; color: white; animation: pulse 1.5s infinite; }
+        
+        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
 
-        /* ELIMINAR SCROLLBARS VISUALES */
-        ::-webkit-scrollbar { display: none; }
-        * { scrollbar-width: none; }
-
-        /* FIX iOS: Destruir los modales blancos nativos de A-Frame que congelan la pantalla */
-        .a-dialog, .a-modal, .a-enter-vr { display: none !important; }
-
-        /* Animaciones */
-        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        .slide-up { animation: slideUp 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        /* Lock Icon */
+        #admin-lock { position: absolute; bottom: 20px; right: 20px; font-size: 24px; opacity: 0.3; cursor: pointer; }
     </style>
 
-    <!-- LOGICA AR.JS CUSTOM (Registrar artefactos) -->
     <script>
-        AFRAME.registerComponent('ar-logic', {
-            schema: { artifactId: { type: 'string' } },
+        AFRAME.registerComponent('proportional-image', {
+            schema: { src: { type: 'string' } },
             init: function () {
-                this.el.addEventListener('markerFound', () => {
-                    // Solo reaccionar si estamos en modo "Juego"
-                    if (window.appState && window.appState.isGameActive) {
-                        const wrapper = this.el.querySelector('.model-wrapper');
-                        if (wrapper) wrapper.setAttribute('animation__pop', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutElastic');
-                        if (window.triggerFound) window.triggerFound(this.data.artifactId);
-                    }
+                const img = new Image();
+                img.src = this.data.src;
+                img.onload = () => {
+                    const ratio = img.width / img.height;
+                    // Standardize height to 1 unit, adjust width based on ratio
+                    this.el.setAttribute('geometry', `primitive: plane; width: ${ratio}; height: 1`);
+                };
+            }
+        });
+
+        AFRAME.registerComponent('pop-out', {
+            init: function () {
+                this.el.setAttribute('scale', '0 0 0');
+            },
+            play: function() {
+                // Elastic animation on marker found
+                this.el.setAttribute('animation', {
+                    property: 'scale',
+                    to: '1.5 1.5 1.5',
+                    dur: 1200,
+                    easing: 'easeOutElastic'
                 });
             }
         });
 
-        // Anti-estiramiento de imágenes 3D
-        AFRAME.registerComponent('fix-aspect-ratio', {
+        AFRAME.registerComponent('marker-handler', {
+            schema: { id: { type: 'string' } },
             init: function () {
-                this.el.addEventListener('materialtextureloaded', () => {
-                    const map = this.el.getObject3D('mesh').material.map;
-                    if (map && map.image) {
-                        const ratio = map.image.width / map.image.height;
-                        if (ratio > 1) { 
-                            this.el.setAttribute('width', '1.5'); this.el.setAttribute('height', (1.5 / ratio).toString());
-                        } else { 
-                            this.el.setAttribute('height', '1.5'); this.el.setAttribute('width', (1.5 * ratio).toString());
-                        }
-                    }
+                this.el.addEventListener('markerFound', () => {
+                    window.appLogic.onMarkerFound(this.data.id);
+                    const child = this.el.firstElementChild;
+                    if(child) child.components['pop-out'].play();
+                });
+                this.el.addEventListener('markerLost', () => {
+                    window.appLogic.onMarkerLost();
                 });
             }
         });
     </script>
 </head>
-<body class="font-body text-white">
+<body>
 
-    <!-- ESCENA AR (Siempre en el DOM para evitar cuelgues, pero oculta tras la UI) -->
-    <a-scene 
-        embedded 
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" 
-        renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true" 
-        device-orientation-permission-ui="enabled: false" 
-        vr-mode-ui="enabled: false"
-        id="ar-scene">
-        
-        <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
-        
-        <!-- Los marcadores se inyectan aquí con JavaScript -->
-        <a-entity id="markers-container"></a-entity>
-        
-        <a-entity camera></a-entity>
-    </a-scene>
-
-    <!-- CAPA DE INTERFAZ -->
-    <div id="ui-layer">
-        
-        <!-- 1. PANTALLA CARGA -->
-        <div id="screen-loading" class="ui-panel flex flex-col items-center justify-center z-50">
-            <i class="fa-solid fa-satellite-dish text-sgx-yellow text-5xl mb-4 animate-ping"></i>
-            <h2 class="font-heading text-xl text-white tracking-widest uppercase">Iniciando SGX...</h2>
-        </div>
-
-        <!-- 2. PANTALLA INICIO -->
-        <div id="screen-home" class="ui-panel hidden flex flex-col items-center justify-center p-6 relative">
-            <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at center, #FDCC0D 1px, transparent 1px); background-size: 30px 30px;"></div>
-            <div class="relative z-10 text-center max-w-md w-full slide-up">
-                <div class="w-24 h-24 bg-sgx-blue rounded-2xl rotate-45 mx-auto mb-8 flex items-center justify-center shadow-[0_0_30px_rgba(50,82,123,0.8)] border-2 border-sgx-yellow">
-                    <i class="fa-solid fa-expand text-sgx-yellow text-4xl -rotate-45"></i>
-                </div>
-                <h1 class="font-heading text-4xl text-white mb-2 uppercase tracking-widest">SGX<br><span class="text-sgx-yellow">Scavenger</span></h1>
-                <p class="text-gray-400 mb-10 text-sm">Explora el evento y escanea los símbolos físicos para revelar arte 3D.</p>
-                
-                <div class="space-y-4">
-                    <button onclick="window.startGame()" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(253,204,13,0.5)] uppercase tracking-wide">
-                        <i class="fa-solid fa-play mr-2"></i> Jugar Ahora
-                    </button>
-                    <button onclick="window.showScreen('screen-instructions')" class="w-full bg-sgx-dark text-white font-bold py-4 px-6 rounded-xl border border-gray-600 shadow-lg uppercase">
-                        <i class="fa-solid fa-book mr-2"></i> Instrucciones
-                    </button>
-                </div>
-            </div>
-            <!-- Candado Admin -->
-            <div class="absolute bottom-4 right-4 text-gray-700 cursor-pointer z-50 p-4" onclick="window.checkAdmin()">
-                <i class="fa-solid fa-lock text-sm"></i>
-            </div>
-        </div>
-
-        <!-- 3. PANTALLA INSTRUCCIONES -->
-        <div id="screen-instructions" class="ui-panel hidden p-6">
-            <div class="max-w-md mx-auto w-full fade-in mt-6">
-                <div class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
-                    <h2 class="font-heading text-2xl text-sgx-yellow">Instrucciones</h2>
-                    <button onclick="window.showScreen('screen-home')" class="text-gray-400 text-2xl"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="space-y-6">
-                    <div class="flex items-start">
-                        <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">1</div>
-                        <p class="text-sm text-gray-300">Abre las <b class="text-white">Pistas</b> en el juego para ver dónde buscar.</p>
-                    </div>
-                    <div class="flex items-start">
-                        <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">2</div>
-                        <p class="text-sm text-gray-300">Encuentra los <b class="text-white">Símbolos Cuadrados</b> impresos en el evento.</p>
-                    </div>
-                    <div class="flex items-start">
-                        <div class="bg-sgx-blue text-sgx-yellow w-10 h-10 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">3</div>
-                        <p class="text-sm text-gray-300">Apunta la cámara al símbolo. El arte 3D saltará para que lo recolectes.</p>
-                    </div>
-                </div>
-                <button onclick="window.showScreen('screen-home')" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl mt-10 uppercase shadow-lg">Entendido</button>
-            </div>
-        </div>
-
-        <!-- 4. PANTALLA ADMIN DASHBOARD -->
-        <div id="screen-dash" class="ui-panel hidden p-4 pb-20">
-            <div class="max-w-md mx-auto fade-in">
-                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-4 mt-2">
-                    <h2 class="font-heading text-xl text-sgx-yellow"><i class="fa-solid fa-user-shield mr-2"></i> SGX Admin</h2>
-                    <button onclick="window.showScreen('screen-home')" class="text-gray-400 bg-gray-800 px-3 py-2 rounded text-sm"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                
-                <div class="flex mb-6 space-x-2 bg-gray-900 p-1 rounded-lg">
-                    <button onclick="window.switchAdminTab('artifacts')" id="tab-btn-artifacts" class="flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md">Artefactos</button>
-                    <button onclick="window.switchAdminTab('badges')" id="tab-btn-badges" class="flex-1 py-2 text-sm font-bold text-gray-400 rounded-md">Insignias</button>
-                </div>
-
-                <!-- Admin: Artefactos -->
-                <div id="tab-artifacts">
-                    <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
-                        <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Añadir Artefacto</h3>
-                        <div class="space-y-4">
-                            <input type="text" id="item-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. Trofeo)">
-                            <textarea id="item-hint" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Pista de ubicación..."></textarea>
-                            <div>
-                                <label class="block text-[10px] text-gray-400 mb-1 uppercase">Foto de Pista (Lugar Real)</label>
-                                <input type="file" id="item-hint-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-gray-700 file:text-white file:border-0 file:rounded file:px-2 file:py-1">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">Arte 3D Pop-Out (Img o GLB)</label>
-                                <input type="file" id="item-art-file" accept="image/*,.glb" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
-                                <p class="text-[9px] text-red-400 mt-1 font-bold">Base de Datos Gratis: Límite 800KB.</p>
-                            </div>
-                            <button id="btn-save-artifact" onclick="window.saveNewArtifact()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg">Guardar Artefacto</button>
-                        </div>
-                    </div>
-                    <div id="admin-artifacts-list" class="space-y-4 pb-10"></div>
-                </div>
-
-                <!-- Admin: Insignias -->
-                <div id="tab-badges" class="hidden">
-                    <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
-                        <h3 class="font-bold text-white mb-4 text-sm uppercase text-sgx-yellow">Crear Insignia</h3>
-                        <div class="space-y-4">
-                            <input type="text" id="badge-name" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Nombre (Ej. Master)">
-                            <input type="number" id="badge-threshold" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="Desbloquea al encontrar X artefactos">
-                            <div>
-                                <label class="block text-[10px] text-sgx-yellow mb-1 font-bold uppercase">Imagen de la Insignia</label>
-                                <input type="file" id="badge-image" accept="image/*" class="w-full text-xs text-gray-400 file:bg-sgx-blue file:text-white file:border-0 file:rounded file:px-2 file:py-1">
-                            </div>
-                            <button id="btn-save-badge" onclick="window.saveNewBadge()" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl mt-2">Guardar Insignia</button>
-                        </div>
-                    </div>
-                    <div id="admin-badges-list" class="space-y-3 pb-10"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 5. HUD JUGADOR (El fondo transparente) -->
-        <div id="screen-play" class="ui-panel transparent hidden flex-col justify-between p-4">
-            <div class="flex justify-between items-start fade-in interactive-element">
-                <div class="bg-sgx-dark bg-opacity-90 backdrop-blur border border-sgx-blue rounded-2xl p-3 flex items-center space-x-4 shadow-lg">
-                    <div class="bg-sgx-blue p-3 rounded-xl text-sgx-yellow"><i class="fa-solid fa-cube text-xl"></i></div>
-                    <div>
-                        <p class="font-heading text-[10px] text-gray-300 uppercase tracking-widest">Encontrados</p>
-                        <p class="font-heading text-xl text-white"><span id="hud-found" class="text-sgx-yellow">0</span> / <span id="hud-total">0</span></p>
-                    </div>
-                </div>
-                <button onclick="location.reload()" class="bg-gray-900 bg-opacity-80 text-white w-12 h-12 rounded-full border border-gray-700 shadow-lg flex items-center justify-center">
-                    <i class="fa-solid fa-house"></i>
-                </button>
-            </div>
-            
-            <div class="flex justify-center mb-6 slide-up interactive-element">
-                <button onclick="window.toggleModal('modal-clues', true)" class="w-full max-w-xs bg-sgx-blue text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(50,82,123,0.8)] border border-blue-400 uppercase tracking-wide">
-                    <i class="fa-solid fa-map-location-dot mr-3"></i> Pistas
-                </button>
-            </div>
-        </div>
-
-        <!-- 6. MODALES INTERACTIVOS (Flotan sobre todo) -->
-        
-        <!-- Pistas -->
-        <div id="modal-clues" class="hidden absolute inset-0 bg-sgx-dark bg-opacity-95 z-[200] overflow-y-auto interactive-element pb-10">
-            <div class="max-w-md mx-auto p-4 fade-in mt-2">
-                <div class="flex justify-between items-center mb-6 bg-gray-900 p-4 rounded-xl border border-sgx-yellow sticky top-0 z-10 shadow-lg">
-                    <h2 class="font-heading text-lg text-white">Ubicaciones</h2>
-                    <button onclick="window.toggleModal('modal-clues', false)" class="text-gray-400 text-2xl"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div id="player-clues-list" class="space-y-4"></div>
-            </div>
-        </div>
-
-        <!-- Tarjeta de Impresión -->
-        <div id="modal-print-card" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-6 z-[200] interactive-element">
-            <div class="w-full max-w-sm bg-white border-4 border-sgx-dark p-6 text-center rounded-xl relative shadow-2xl fade-in">
-                <button onclick="window.toggleModal('modal-print-card', false)" class="absolute top-2 right-2 text-gray-400 hover:text-black w-8 h-8"><i class="fa-solid fa-xmark text-xl"></i></button>
-                <h2 class="font-heading text-xl text-black uppercase font-bold mb-4" id="print-name">Nombre</h2>
-                
-                <div class="flex justify-between items-center mb-4 gap-4">
-                    <div class="w-1/2 flex flex-col items-center">
-                        <p class="text-[10px] text-gray-500 font-bold mb-1 uppercase">1. Escanea URL</p>
-                        <div id="print-qr" class="border-2 border-gray-300 p-1 rounded bg-white"></div>
-                    </div>
-                    <div class="w-1/2 flex flex-col items-center">
-                        <p class="text-[10px] text-sgx-blue font-bold mb-1 uppercase">2. Apunta Cámara</p>
-                        <!-- URL Oficial de Github Pages de AR.js - Libre de CORS -->
-                        <img id="print-barcode-img" src="" class="w-24 h-24 border-2 border-black object-contain bg-white">
-                        <p class="text-[9px] text-gray-500 font-bold mt-1 uppercase">Símbolo ID: <span id="print-barcode-id">0</span></p>
-                    </div>
-                </div>
-                <p class="text-xs text-sgx-blue font-bold uppercase mt-2 border-t pt-2">Spatialgineers AR</p>
-            </div>
-            <p class="mt-4 text-white text-sm font-bold bg-sgx-dark px-4 py-2 rounded-full border border-gray-700 shadow-lg"><i class="fa-solid fa-camera text-sgx-yellow mr-2"></i>Toma Screenshot</p>
-        </div>
-
-        <!-- Recompensa de Escaneo -->
-        <div id="modal-reward" class="hidden absolute bottom-6 w-full flex justify-center z-[200] interactive-element">
-            <div class="w-full max-w-sm mx-4 bg-gray-900 bg-opacity-90 backdrop-blur border-2 border-sgx-yellow p-6 rounded-3xl text-center slide-up shadow-2xl">
-                <h3 class="font-heading text-xl text-sgx-yellow uppercase mb-1">¡Artefacto Revelado!</h3>
-                <p class="text-white font-bold mb-4" id="ar-artifact-name">Nombre</p>
-                <button id="btn-collect" class="w-full bg-sgx-yellow text-sgx-dark font-bold py-4 rounded-xl uppercase tracking-widest">
-                    <i class="fa-solid fa-download mr-2"></i> Recolectar
-                </button>
-            </div>
-        </div>
-
-        <!-- Desbloqueo de Insignia -->
-        <div id="modal-badge" class="hidden absolute inset-0 bg-black bg-opacity-95 flex flex-col items-center justify-center p-6 z-[250] interactive-element">
-            <div class="bg-sgx-dark border-2 border-sgx-copper rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_60px_rgba(184,115,51,0.6)] slide-up relative overflow-hidden">
-                <p class="text-xs text-sgx-copper uppercase tracking-widest mb-4 font-bold">¡Insignia Obtenida!</p>
-                <div class="w-32 h-32 bg-gray-900 rounded-full border-4 border-sgx-copper mx-auto mb-4 flex items-center justify-center overflow-hidden" id="badge-display-container"></div>
-                <h2 id="badge-name-display" class="font-heading text-2xl font-bold text-white mb-6 uppercase">Master</h2>
-                <button onclick="window.toggleModal('modal-badge', false)" class="w-full bg-sgx-copper text-white font-bold py-3 rounded-xl hover:bg-orange-600 transition">Continuar</button>
-            </div>
-        </div>
-
-        <!-- Error/Alerta -->
-        <div id="alert-modal" class="hidden absolute inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-6 z-[300] interactive-element">
-            <div class="bg-gray-900 border border-sgx-yellow rounded-2xl p-6 max-w-sm w-full text-center slide-up">
-                <i class="fa-solid fa-circle-exclamation text-sgx-yellow text-4xl mb-3"></i>
-                <h3 class="font-heading text-lg text-white mb-2 uppercase">Aviso</h3>
-                <p id="alert-message" class="text-sm text-gray-300 mb-6"></p>
-                <button onclick="window.toggleModal('alert-modal', false)" class="w-full bg-sgx-blue text-white font-bold py-3 rounded-xl">Entendido</button>
-            </div>
-        </div>
-
+    <div id="ar-container" class="hidden" style="position: absolute; top:0; left:0; width: 100%; height: 100%; z-index: 1;">
+        <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" renderer="logarithmicDepthBuffer: true;" vr-mode-ui="enabled: false">
+            <a-entity id="dynamic-markers"></a-entity>
+            <a-entity camera></a-entity>
+        </a-scene>
     </div>
 
-    <!-- FIREBASE MODULE -->
+    <div id="screen-loading" class="screen">
+        <h1>SGX AR Hunt</h1>
+        <p>Cargando experiencia inmersiva...</p>
+    </div>
+
+    <div id="screen-menu" class="screen hidden">
+        <h1>Búsqueda de Tesoros</h1>
+        <p>Encuentra los artefactos escondidos escaneando los códigos AR.</p>
+        <button class="btn" onclick="window.appLogic.startGame()">Jugar</button>
+        <button class="btn btn-blue" onclick="window.appLogic.showInstructions()">Instrucciones</button>
+        <div id="admin-lock" onclick="window.appLogic.promptAdmin()">🔒</div>
+    </div>
+
+    <div id="screen-instructions" class="screen hidden">
+        <h2>Instrucciones</h2>
+        <p>1. Busca las tarjetas con el logo de SGX escondidas.</p>
+        <p>2. Apunta la cámara hacia el código de barras 3x3.</p>
+        <p>3. Descubre el arte oculto y presiona "Recolectar".</p>
+        <p>4. Completa la colección para ganar Badges.</p>
+        <button class="btn btn-blue" onclick="window.appLogic.showMenu()">Volver</button>
+    </div>
+
+    <div id="screen-hud" class="screen overlay hidden">
+        <div class="hud-top">
+            <button class="btn btn-blue" style="padding: 10px; font-size: 14px;" onclick="window.appLogic.showMenu()">Salir</button>
+            <div class="badge-count pointer-events-auto" onclick="window.appLogic.showProfile()">
+                Artefactos: <span id="hud-count">0</span>
+            </div>
+        </div>
+        <div class="hud-bottom">
+            <button id="collect-btn" class="btn hidden pointer-events-auto" onclick="window.appLogic.collectCurrent()">¡RECOLECTAR!</button>
+        </div>
+    </div>
+
+    <div id="screen-profile" class="screen hidden">
+        <button class="btn btn-blue btn-close" onclick="window.appLogic.hideProfile()">X</button>
+        <h2>Mi Progreso</h2>
+        <p>Artefactos encontrados: <span id="profile-count">0</span> / <span id="profile-total">0</span></p>
+        <div id="badges-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px;">
+            </div>
+    </div>
+
+    <div id="screen-admin" class="screen hidden" style="background: rgba(15, 23, 42, 0.9);">
+        <button class="btn btn-blue btn-close" onclick="window.appLogic.showMenu()">X</button>
+        <div class="admin-panel pointer-events-auto">
+            <h2 style="color: var(--sgx-dark);">Panel de Administración SGX</h2>
+            
+            <div style="display:flex; border-bottom: 2px solid var(--sgx-blue); margin-bottom: 15px;">
+                <button class="btn btn-blue" style="flex:1; margin:0;" onclick="window.appLogic.switchAdminTab('artifacts')">Artefactos</button>
+                <button class="btn" style="flex:1; margin:0; background: #E2E8F0;" onclick="window.appLogic.switchAdminTab('badges')">Badges</button>
+            </div>
+
+            <div id="tab-artifacts">
+                <h3>Crear Artefacto</h3>
+                <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" id="art-name" placeholder="Ej. Reliquia Taína">
+                </div>
+                <div class="form-group">
+                    <label>Pista:</label>
+                    <textarea id="art-clue" rows="2" placeholder="Ubicación..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Foto de Pista (JPG/PNG - se comprimirá):</label>
+                    <input type="file" id="art-photo" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>Arte Pop-out (Imagen o GLB máx 850KB):</label>
+                    <select id="art-type" style="margin-bottom: 5px;">
+                        <option value="image">Imagen (JPG/PNG)</option>
+                        <option value="glb">Modelo 3D (.glb)</option>
+                    </select>
+                    <input type="file" id="art-file" accept="image/*,.glb">
+                </div>
+                <button class="btn" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveArtifact()">Guardar y Generar Tarjeta</button>
+                
+                <div id="card-preview" class="card-preview hidden">
+                    <h4 style="color: var(--sgx-blue); margin-top:0;">Tarjeta Generada</h4>
+                    <p id="card-art-name" style="color: #333; font-weight:bold;"></p>
+                    <p>ID Barcode: <strong id="card-barcode-id"></strong></p>
+                    <div style="display:flex; justify-content: space-around; align-items:center;">
+                        <div>
+                            <p style="font-size: 12px; color: #666;">QR App URL</p>
+                            <img id="card-qr" class="qr-img" src="" alt="QR">
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: #666;">AR Barcode</p>
+                            <canvas id="card-barcode-canvas" class="qr-img" width="150" height="150"></canvas>
+                        </div>
+                    </div>
+                    <p style="font-size:10px; color:gray;">Imprime esta tarjeta. Los usuarios escanean el QR para abrir la app, y apuntan la cámara al Barcode para ver el Pop-out.</p>
+                </div>
+            </div>
+
+            <div id="tab-badges" class="hidden">
+                <h3>Crear Badge (Insignia)</h3>
+                <div class="form-group">
+                    <label>Nombre del Badge:</label>
+                    <input type="text" id="badge-name" placeholder="Ej. Explorador Novato">
+                </div>
+                <div class="form-group">
+                    <label>Artefactos requeridos para desbloquear:</label>
+                    <input type="number" id="badge-req" min="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label>Imagen del Badge (JPG/PNG):</label>
+                    <input type="file" id="badge-img" accept="image/*">
+                </div>
+                <button class="btn" style="width: 100%; margin: 10px 0;" onclick="window.appLogic.saveBadge()">Guardar Badge</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // Tu configuración oficial de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
             authDomain: "sgx-ar-hunt.firebaseapp.com",
@@ -348,305 +237,275 @@
             measurementId: "G-QV8KZR2V97"
         };
 
-        const appKey = 'sgx-hunt-v18'; // Versión auditada
-        
-        window.appState = { 
-            db: null, auth: null, userId: null, 
-            artifacts: [], badges: [], foundIds: new Set(), 
-            activeARId: null, isGameActive: false 
-        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
 
-        async function initApp() {
-            try {
-                const app = initializeApp(firebaseConfig);
-                window.appState.auth = getAuth(app);
-                window.appState.db = getFirestore(app);
+        let currentUser = null;
+        let artifactsData = [];
+        let badgesData = [];
+        let collectedIds = [];
+        let currentDetectedMarker = null;
 
-                await signInAnonymously(window.appState.auth);
-                onAuthStateChanged(window.appState.auth, (user) => {
-                    if (user) { 
-                        window.appState.userId = user.uid; 
-                        loadData(); 
-                    }
-                });
-            } catch (e) {
-                window.toggleModal('screen-loading', false);
-                window.showAlert("Error conectando a Firebase.");
-            }
-        }
-
-        function loadData() {
-            const db = window.appState.db;
-            
-            // Cargar Artefactos
-            onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'items'), (snapshot) => {
-                window.appState.artifacts = [];
-                snapshot.forEach(doc => window.appState.artifacts.push({ docId: doc.id, ...doc.data() }));
-                window.appState.artifacts.sort((a,b) => parseInt(a.barcode) - parseInt(b.barcode));
-                
-                if(window.renderAdminList) window.renderAdminList();
-                if(window.renderPlayerClues) window.renderPlayerClues();
-                if(window.updateHUD) window.updateHUD();
-                
-                window.toggleModal('screen-loading', false);
-                
-                // Mostrar Home si todo está oculto (primer arranque)
-                const play = document.getElementById('screen-play');
-                const dash = document.getElementById('screen-dash');
-                const inst = document.getElementById('screen-instructions');
-                if (play && dash && inst && play.classList.contains('hidden') && dash.classList.contains('hidden') && inst.classList.contains('hidden')) {
-                    window.showScreen('screen-home');
-                }
-            });
-
-            // Cargar Badges
-            onSnapshot(collection(db, 'artifacts', appKey, 'public', 'data', 'badges'), (snapshot) => {
-                window.appState.badges = [];
-                snapshot.forEach(doc => window.appState.badges.push({ docId: doc.id, ...doc.data() }));
-                window.appState.badges.sort((a,b) => parseInt(a.threshold) - parseInt(b.threshold));
-                if(window.renderBadgesList) window.renderBadgesList();
-            });
-
-            // Cargar Progreso Jugador
-            onSnapshot(doc(db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), (docSnap) => {
-                if (docSnap.exists()) window.appState.foundIds = new Set(docSnap.data().foundList || []);
-                if(window.updateHUD) window.updateHUD();
-            });
-        }
-
-        window.processFileAsBase64 = (file, isGLB, callback) => {
-            if (!file) return callback(null);
-            if (isGLB) {
-                if (file.size > 850000) {
-                    window.showAlert("El archivo GLB es muy pesado (>850KB). Reduce sus polígonos en Blender.");
-                    return callback(null);
-                }
+        // Utility: Image Compression (Canvas)
+        function compressImage(file, quality = 0.6, maxWidth = 400) {
+            return new Promise((resolve) => {
                 const reader = new FileReader();
-                reader.onload = (e) => callback(e.target.result);
                 reader.readAsDataURL(file);
-            } else {
-                const reader = new FileReader();
                 reader.onload = (e) => {
                     const img = new Image();
+                    img.src = e.target.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const scale = Math.min(400 / img.width, 1);
-                        canvas.width = img.width * scale; canvas.height = img.height * scale;
-                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                        callback(canvas.toDataURL('image/jpeg', 0.6));
+                        const ctx = canvas.getContext('2d');
+                        let scaleSize = maxWidth / img.width;
+                        if(scaleSize > 1) scaleSize = 1; // Don't upscale
+                        canvas.width = img.width * scaleSize;
+                        canvas.height = img.height * scaleSize;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
                     };
-                    img.src = e.target.result;
                 };
+            });
+        }
+
+        // Utility: Read GLB to Base64 with Size Limit
+        function readGLB(file) {
+            return new Promise((resolve, reject) => {
+                if (file.size > 850 * 1024) {
+                    alert("El archivo GLB excede los 850KB permitidos.");
+                    reject("File too large");
+                    return;
+                }
+                const reader = new FileReader();
                 reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Utility: Simple 3x3 Matrix Drawer for visual representation on Card
+        function drawMatrixBarcode(canvasId, id) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, 150, 150);
+            ctx.fillStyle = "black";
+            // Draw thick border
+            ctx.fillRect(10, 10, 130, 130);
+            ctx.fillStyle = "white";
+            ctx.fillRect(30, 30, 90, 90);
+            
+            // Draw 3x3 grid based on binary of ID (simplified representation)
+            ctx.fillStyle = "black";
+            const bin = id.toString(2).padStart(9, '0');
+            let idx = 0;
+            for(let y=0; y<3; y++){
+                for(let x=0; x<3; x++){
+                    if(bin[idx] === '1') {
+                        ctx.fillRect(30 + (x*30), 30 + (y*30), 30, 30);
+                    }
+                    idx++;
+                }
+            }
+        }
+
+        // Main App Logic mapped to window for HTML event handlers
+        window.appLogic = {
+            init: async function() {
+                signInAnonymously(auth);
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        currentUser = user;
+                        await this.loadGameData();
+                        this.loadUserData();
+                        this.switchScreen('screen-loading', 'screen-menu');
+                    }
+                });
+            },
+
+            loadGameData: async function() {
+                // Fetch Artifacts
+                const artSnapshot = await getDocs(collection(db, "artifacts"));
+                artifactsData = [];
+                const markersContainer = document.getElementById('dynamic-markers');
+                markersContainer.innerHTML = ''; // Clear
+
+                artSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    artifactsData.push({ id: doc.id, ...data });
+                    
+                    // Inject A-Frame AR markers
+                    const markerEl = document.createElement('a-marker');
+                    markerEl.setAttribute('type', 'barcode');
+                    markerEl.setAttribute('value', data.barcodeId);
+                    markerEl.setAttribute('marker-handler', `id: ${doc.id}`);
+                    
+                    const artEl = document.createElement(data.type === 'glb' ? 'a-gltf-model' : 'a-image');
+                    artEl.setAttribute('src', data.artBase64);
+                    artEl.setAttribute('pop-out', '');
+                    artEl.setAttribute('rotation', '-90 0 0'); // Lay flat on marker
+
+                    if (data.type === 'image') {
+                        artEl.setAttribute('proportional-image', `src: ${data.artBase64}`);
+                    }
+
+                    markerEl.appendChild(artEl);
+                    markersContainer.appendChild(markerEl);
+                });
+
+                // Fetch Badges
+                const badgeSnapshot = await getDocs(collection(db, "badges"));
+                badgesData = [];
+                badgeSnapshot.forEach(doc => badgesData.push(doc.data()));
+                badgesData.sort((a,b) => a.required - b.required);
+            },
+
+            loadUserData: function() {
+                onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
+                    if (docSnap.exists()) {
+                        collectedIds = docSnap.data().collected || [];
+                    } else {
+                        collectedIds = [];
+                    }
+                    document.getElementById('hud-count').innerText = collectedIds.length;
+                    document.getElementById('profile-count').innerText = collectedIds.length;
+                    document.getElementById('profile-total').innerText = artifactsData.length;
+                    this.renderBadges();
+                });
+            },
+
+            renderBadges: function() {
+                const container = document.getElementById('badges-container');
+                container.innerHTML = '';
+                badgesData.forEach(badge => {
+                    const unlocked = collectedIds.length >= badge.required;
+                    container.innerHTML += `
+                        <div style="text-align:center; opacity: ${unlocked ? '1' : '0.4'}; filter: ${unlocked ? 'none' : 'grayscale(100%)'};">
+                            <img src="${badge.imgBase64}" style="width:80px; height:80px; border-radius:50%; border: 3px solid var(--sgx-yellow);">
+                            <p style="font-size:12px; margin-top:5px;">${badge.name}<br>(${badge.required} arts)</p>
+                        </div>
+                    `;
+                });
+            },
+
+            // Navigation
+            switchScreen: function(hideId, showId) {
+                document.getElementById(hideId).classList.add('hidden');
+                document.getElementById(showId).classList.remove('hidden');
+            },
+            showMenu: function() {
+                document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+                document.getElementById('screen-menu').classList.remove('hidden');
+                document.getElementById('ar-container').classList.add('hidden');
+            },
+            startGame: function() {
+                this.switchScreen('screen-menu', 'screen-hud');
+                document.getElementById('ar-container').classList.remove('hidden');
+            },
+            showInstructions: function() { this.switchScreen('screen-menu', 'screen-instructions'); },
+            showProfile: function() { document.getElementById('screen-profile').classList.remove('hidden'); },
+            hideProfile: function() { document.getElementById('screen-profile').classList.add('hidden'); },
+            
+            promptAdmin: function() {
+                const pwd = prompt("Clave de Administrador:");
+                if (pwd === "sgx2026") this.switchScreen('screen-menu', 'screen-admin');
+                else if (pwd !== null) alert("Clave incorrecta.");
+            },
+            switchAdminTab: function(tab) {
+                if(tab === 'artifacts') {
+                    document.getElementById('tab-artifacts').classList.remove('hidden');
+                    document.getElementById('tab-badges').classList.add('hidden');
+                } else {
+                    document.getElementById('tab-artifacts').classList.add('hidden');
+                    document.getElementById('tab-badges').classList.remove('hidden');
+                }
+            },
+
+            // AR Logic
+            onMarkerFound: function(artifactId) {
+                currentDetectedMarker = artifactId;
+                if (!collectedIds.includes(artifactId)) {
+                    document.getElementById('collect-btn').classList.remove('hidden');
+                }
+            },
+            onMarkerLost: function() {
+                currentDetectedMarker = null;
+                document.getElementById('collect-btn').classList.add('hidden');
+            },
+            collectCurrent: async function() {
+                if (!currentDetectedMarker) return;
+                const newCollected = [...collectedIds, currentDetectedMarker];
+                await setDoc(doc(db, "users", currentUser.uid), { collected: newCollected }, { merge: true });
+                document.getElementById('collect-btn').classList.add('hidden');
+                alert("¡Artefacto Recolectado!");
+            },
+
+            // Admin Logic
+            saveArtifact: async function() {
+                const name = document.getElementById('art-name').value;
+                const clue = document.getElementById('art-clue').value;
+                const photoFile = document.getElementById('art-photo').files[0];
+                const type = document.getElementById('art-type').value;
+                const artFile = document.getElementById('art-file').files[0];
+
+                if(!name || !photoFile || !artFile) return alert("Completa todos los campos obligatorios.");
+
+                try {
+                    const photoBase64 = await compressImage(photoFile);
+                    let artBase64 = "";
+                    if (type === 'image') artBase64 = await compressImage(artFile, 0.8, 800); // Higher res for AR
+                    else artBase64 = await readGLB(artFile);
+
+                    // Next Barcode ID
+                    const barcodeId = artifactsData.length;
+
+                    const docRef = await addDoc(collection(db, "artifacts"), {
+                        name, clue, type, barcodeId, photoBase64, artBase64
+                    });
+
+                    alert("Artefacto guardado exitosamente.");
+                    
+                    // Generate Card
+                    document.getElementById('card-preview').classList.remove('hidden');
+                    document.getElementById('card-art-name').innerText = name;
+                    document.getElementById('card-barcode-id').innerText = barcodeId;
+                    
+                    const appUrl = window.location.href;
+                    document.getElementById('card-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(appUrl)}`;
+                    
+                    drawMatrixBarcode('card-barcode-canvas', barcodeId);
+
+                    // Refresh AR scene data
+                    this.loadGameData();
+
+                } catch (e) {
+                    console.error(e);
+                    if(e !== "File too large") alert("Error al guardar: " + e.message);
+                }
+            },
+
+            saveBadge: async function() {
+                const name = document.getElementById('badge-name').value;
+                const req = parseInt(document.getElementById('badge-req').value);
+                const imgFile = document.getElementById('badge-img').files[0];
+
+                if(!name || !imgFile) return alert("Completa todos los campos.");
+
+                try {
+                    const imgBase64 = await compressImage(imgFile, 0.7, 200);
+                    await addDoc(collection(db, "badges"), { name, required: req, imgBase64 });
+                    alert("Badge guardado.");
+                    this.loadGameData(); // Refresh badges
+                } catch(e) {
+                    alert("Error: " + e.message);
+                }
             }
         };
 
-        window.saveNewArtifact = async function() {
-            const nameEl = document.getElementById('item-name');
-            const hintEl = document.getElementById('item-hint');
-            const btnSave = document.getElementById('btn-save-artifact');
+        // Boot
+        window.addEventListener('load', () => window.appLogic.init());
 
-            if (!nameEl.value || !hintEl.value) return window.showAlert("Nombre y pista obligatorios.");
-            btnSave.innerText = "Empaquetando..."; btnSave.disabled = true;
-
-            const usedBarcodes = window.appState.artifacts.map(a => parseInt(a.barcode));
-            let nextBarcode = 0;
-            while(usedBarcodes.includes(nextBarcode)) { nextBarcode++; }
-
-            const fileHint = document.getElementById('item-hint-image').files[0];
-            const fileArt = document.getElementById('item-art-file').files[0];
-            let isGLB = fileArt && fileArt.name.toLowerCase().endsWith('.glb');
-
-            window.processFileAsBase64(fileHint, false, (hintBase64) => {
-                window.processFileAsBase64(fileArt, isGLB, async (artBase64) => {
-                    if (fileArt && !artBase64) { btnSave.innerText = "Guardar Artefacto"; btnSave.disabled = false; return; }
-                    try {
-                        await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items'), {
-                            id: Date.now().toString(), name: nameEl.value, hint: hintEl.value, barcode: nextBarcode, imageHint: hintBase64, imageArt: artBase64, isGLB: isGLB
-                        });
-                        nameEl.value = ''; hintEl.value = '';
-                        document.getElementById('item-hint-image').value = ''; document.getElementById('item-art-file').value = '';
-                    } catch (e) { window.showAlert("El archivo es demasiado grande para Firebase."); }
-                    btnSave.innerText = "Guardar Artefacto"; btnSave.disabled = false;
-                });
-            });
-        };
-
-        window.deleteArtifact = async function(docId) { await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'items', docId)); };
-
-        window.saveNewBadge = async function() {
-            const nameEl = document.getElementById('badge-name'), threshEl = document.getElementById('badge-threshold'), btnSave = document.getElementById('btn-save-badge');
-            if(!nameEl.value || !threshEl.value) return window.showAlert("Faltan datos.");
-            btnSave.innerText = "Guardando..."; btnSave.disabled = true;
-
-            window.processFileAsBase64(document.getElementById('badge-image').files[0], false, async (imgBase64) => {
-                await addDoc(collection(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges'), { name: nameEl.value, imageUrl: imgBase64, threshold: parseInt(threshEl.value) });
-                nameEl.value = ''; threshEl.value = ''; document.getElementById('badge-image').value = '';
-                btnSave.innerText = "Guardar Insignia"; btnSave.disabled = false;
-            });
-        };
-
-        window.deleteBadge = async function(docId) { await deleteDoc(doc(window.appState.db, 'artifacts', appKey, 'public', 'data', 'badges', docId)); };
-
-        // TRIGGER AL DETECTAR MARCADOR
-        window.triggerFound = function(artifactId) {
-            if (window.appState.foundIds.has(artifactId) || window.appState.activeARId === artifactId) return; 
-            
-            window.appState.activeARId = artifactId;
-            const item = window.appState.artifacts.find(a => a.id === artifactId);
-            if(!item) return;
-
-            document.getElementById('ar-artifact-name').innerText = item.name;
-            window.toggleModal('modal-reward', true);
-            
-            document.getElementById('btn-collect').onclick = async () => {
-                window.toggleModal('modal-reward', false);
-                window.appState.activeARId = null;
-                window.appState.foundIds.add(artifactId);
-                
-                await setDoc(doc(window.appState.db, 'artifacts', appKey, 'users', window.appState.userId, 'player_state', 'progress'), { foundList: Array.from(window.appState.foundIds) });
-                window.renderPlayerClues();
-
-                const newSize = window.appState.foundIds.size;
-                const earnedBadge = window.appState.badges.find(b => parseInt(b.threshold) === newSize);
-                
-                if(earnedBadge) {
-                    document.getElementById('badge-name-display').innerText = earnedBadge.name;
-                    const bContainer = document.getElementById('badge-display-container');
-                    bContainer.innerHTML = earnedBadge.imageUrl ? `<img src="${earnedBadge.imageUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-medal text-sgx-copper text-6xl"></i>`;
-                    window.toggleModal('modal-badge', true);
-                }
-            };
-        };
-
-        initApp();
-    </script>
-
-    <!-- LOGICA FRONT-END UI -->
-    <script>
-        window.showAlert = (msg) => { 
-            const a = document.getElementById('alert-message'); 
-            if(a) { a.innerText = msg; window.toggleModal('alert-modal', true); } else alert(msg); 
-        };
-        
-        window.showScreen = (id) => { 
-            ['screen-home', 'screen-instructions', 'screen-dash', 'screen-play'].forEach(s => { 
-                const e = document.getElementById(s); if(e) e.classList.add('hidden'); 
-            }); 
-            const t = document.getElementById(id); if(t) t.classList.remove('hidden'); 
-        };
-        
-        window.toggleModal = (id, show) => {
-            const m = document.getElementById(id);
-            if(m) { show ? m.classList.remove('hidden') : m.classList.add('hidden'); }
-        }
-
-        window.checkAdmin = () => { if(prompt("Acceso SGX:") === "sgx2026") window.showScreen('screen-dash'); };
-        
-        window.switchAdminTab = (tab) => {
-            ['artifacts', 'badges'].forEach(t => {
-                document.getElementById(`tab-${t}`).classList.add('hidden');
-                document.getElementById(`tab-btn-${t}`).className = "flex-1 py-2 text-sm font-bold text-gray-400 rounded-md transition";
-            });
-            document.getElementById(`tab-${tab}`).classList.remove('hidden');
-            document.getElementById(`tab-btn-${tab}`).className = "flex-1 py-2 text-sm font-bold bg-sgx-blue text-white rounded-md transition";
-        };
-        
-        window.updateHUD = () => {
-            const t = document.getElementById('hud-total'), f = document.getElementById('hud-found');
-            if(t && window.appState) t.innerText = window.appState.artifacts.length || 0;
-            if(f && window.appState) f.innerText = window.appState.foundIds.size || 0;
-        };
-
-        // INYECCIÓN DE AR DINÁMICA (Sin bloquear iOS)
-        window.startGame = () => {
-            if(!window.appState || window.appState.artifacts.length === 0) return window.showAlert("No hay artefactos configurados.");
-            window.showScreen('screen-play');
-            window.appState.isGameActive = true;
-            
-            const container = document.getElementById('markers-container');
-            if(!container || container.innerHTML.trim() !== '') return; 
-
-            let markersHTML = '';
-            window.appState.artifacts.forEach(item => {
-                let artHTML = `<a-box color="#FDCC0D" depth="0.6" height="0.6" width="0.6" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-box>`;
-                if(item.imageArt) {
-                    if(item.isGLB) artHTML = `<a-gltf-model src="${item.imageArt}" position="0 0.5 0" scale="0.5 0.5 0.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000;"></a-gltf-model>`;
-                    else artHTML = `<a-image fix-aspect-ratio src="${item.imageArt}" position="0 0.5 0" animation="property: position; to: 0 0.7 0; dir: alternate; dur: 1500; loop: true"></a-image><a-ring color="#FDCC0D" radius-inner="0.9" radius-outer="1.0" rotation="-90 0 0" animation="property: rotation; to: -90 360 0; loop: true; dur: 4000;"></a-ring>`;
-                }
-                markersHTML += `<a-marker type="barcode" value="${item.barcode}" class="dynamic-marker" ar-logic="artifactId: ${item.id}"><a-entity class="model-wrapper" rotation="-90 0 0" scale="0 0 0">${artHTML}</a-entity></a-marker>`;
-            });
-            container.innerHTML = markersHTML;
-        };
-
-        window.renderAdminList = () => {
-            const list = document.getElementById('admin-artifacts-list');
-            const count = document.getElementById('list-count');
-            if (count && window.appState) count.innerText = window.appState.artifacts.length || 0;
-            if (!list) return;
-
-            list.innerHTML = '';
-            const baseUrl = window.location.href.split('?')[0]; 
-            window.appState.artifacts.forEach(item => {
-                const codeNumber = item.barcode !== undefined ? item.barcode : 0; 
-                // URL ORIGINAL OFICIAL (GitHub Pages, 100% segura y sin bloqueos de navegador)
-                const barcodeImgUrl = `https://ar-js-org.github.io/AR.js/three.js/examples/marker-training/examples/pattern-images/barcode-3x3-${codeNumber}.png`;
-                
-                list.innerHTML += `
-                    <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
-                        <div class="flex justify-between items-start mb-3">
-                            <div><h4 class="font-bold text-white">${item.name}</h4><p class="text-xs text-sgx-yellow">Símbolo ID: ${codeNumber}</p></div>
-                            <button onclick="window.deleteArtifact('${item.docId}')" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                        <button onclick="window.showPrintCard('${item.name}', '${baseUrl}', '${barcodeImgUrl}', ${codeNumber})" class="w-full bg-white text-black font-bold py-2 rounded text-sm"><i class="fa-solid fa-print mr-2"></i> Ver Tarjeta AR</button>
-                    </div>
-                `;
-            });
-        };
-
-        window.renderBadgesList = () => {
-            const list = document.getElementById('admin-badges-list');
-            if (!list) return;
-            list.innerHTML = '';
-            if(!window.appState || window.appState.badges.length === 0) return;
-            window.appState.badges.forEach(badge => {
-                const imgHTML = badge.imageUrl ? `<img src="${badge.imageUrl}" class="w-10 h-10 rounded-full object-cover">` : `<i class="fa-solid fa-medal text-sgx-copper text-xl"></i>`;
-                list.innerHTML += `
-                    <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex justify-between items-center">
-                        <div class="flex items-center space-x-3">${imgHTML}<div><h4 class="font-bold text-white text-sm">${badge.name}</h4><p class="text-xs text-sgx-yellow font-bold">Requiere: ${badge.threshold}</p></div></div>
-                        <button onclick="window.deleteBadge('${badge.docId}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                `;
-            });
-        };
-
-        window.showPrintCard = (name, qrUrl, barcodeUrl, codeNumber) => {
-            document.getElementById('print-name').innerText = name; 
-            document.getElementById('print-barcode-id').innerText = codeNumber;
-            document.getElementById('print-barcode-img').setAttribute('src', barcodeUrl); 
-            document.getElementById('print-qr').innerHTML = '';
-            new QRCode(document.getElementById('print-qr'), { text: qrUrl, width: 80, height: 80, colorDark: "#0F172A", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.L });
-            window.toggleModal('modal-print-card', true);
-        };
-
-        window.renderPlayerClues = () => {
-            const list = document.getElementById('player-clues-list');
-            if (!list || !window.appState) return;
-            list.innerHTML = '';
-            window.appState.artifacts.forEach((item) => {
-                const found = window.appState.foundIds.has(item.id);
-                list.innerHTML += `
-                    <div class="bg-gray-800 rounded-xl overflow-hidden border ${found ? 'border-sgx-yellow opacity-60' : 'border-gray-700'} relative">
-                        ${found ? '<div class="absolute inset-0 bg-sgx-dark bg-opacity-80 flex items-center justify-center z-10"><i class="fa-solid fa-check-circle text-sgx-yellow text-6xl"></i></div>' : ''}
-                        ${item.imageHint ? `<img src="${item.imageHint}" class="w-full h-32 object-cover">` : `<div class="w-full h-24 bg-gray-900"></div>`}
-                        <div class="p-4">
-                            <h4 class="font-bold text-white text-sm">${item.name}</h4>
-                            <p class="text-xs text-gray-400 mt-1"><i class="fa-solid fa-location-dot text-sgx-yellow mr-1"></i> ${item.hint}</p>
-                        </div>
-                    </div>
-                `;
-            });
-        };
     </script>
 </body>
 </html>
