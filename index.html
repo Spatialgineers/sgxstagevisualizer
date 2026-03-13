@@ -2,659 +2,670 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SGX.Stage | Kinetic Visualizer v3.9 Pro</title>
-    <!-- Frameworks UI y Tipografía -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SGX AR | Spatialgineers</title>
     
-    <!-- Three.js Core & Pro Loaders (Versión 136 para estabilidad KTX2/DRACO) -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/loaders/DRACOLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/loaders/KTX2Loader.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        sgxBlue: '#32527B',
+                        sgxYellow: '#FDCC0D',
+                        slateBg: '#0f172a'
+                    },
+                    animation: {
+                        'spin-slow': 'spin 3s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Model Viewer para AR -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; background-color: #010101; font-family: 'Rajdhani', sans-serif; color: #ffffff; user-select: none; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        .scanlines { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02)); background-size: 100% 4px, 3px 100%; z-index: 5; pointer-events: none; opacity: 0.3; }
-        .ui-layer { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; }
-        .interactive-element { pointer-events: auto; }
-        .font-tech { font-family: 'Share Tech Mono', monospace; }
-        .text-sgx-yellow { color: #FDCC0D; }
-        .bg-sgx-yellow { background-color: #FDCC0D; }
-        .glass-panel { background: rgba(5, 15, 35, 0.95); backdrop-filter: blur(40px); border: 1px solid rgba(253, 204, 13, 0.2); box-shadow: 0 0 50px rgba(0, 0, 0, 0.9); }
-        
-        .glitch-text { position: relative; }
-        .glitch-text::before, .glitch-text::after { content: attr(data-text); position: absolute; top: 0; left: 0; opacity: 0.8; }
-        .glitch-text::before { left: 2px; text-shadow: -1px 0 #ff00c1; animation: glitch-anim-1 2s infinite linear alternate-reverse; }
-        .glitch-text::after { left: -2px; text-shadow: -1px 0 #00fff9; animation: glitch-anim-2 3s infinite linear alternate-reverse; }
-        @keyframes glitch-anim-1 { 0% { clip: rect(20px, 9999px, 85px, 0); } 100% { clip: rect(10px, 9999px, 90px, 0); } }
-        @keyframes glitch-anim-2 { 0% { clip: rect(12px, 9999px, 59px, 0); } 100% { clip: rect(30px, 9999px, 70px, 0); } }
-        
-        input[type=range] { -webkit-appearance: none; background: transparent; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%; background: #FDCC0D; cursor: pointer; margin-top: -7px; box-shadow: 0 0 10px #FDCC0D; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(50, 82, 123, 0.5); border-radius: 2px; }
-        
-        .ui-transition { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease; }
-        .ui-hidden { opacity: 0; transform: scale(0.95) translateY(15px); pointer-events: none; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #FDCC0D; border-radius: 10px; }
-        
-        .color-input { -webkit-appearance: none; border: none; width: 100%; height: 24px; border-radius: 6px; cursor: pointer; background: transparent; }
-        .color-input::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; }
-
-        .toggle-btn { background: rgba(255,255,255,0.05); color: #777; border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s; cursor: pointer; text-align: center; }
-        .toggle-btn.active { background: #FDCC0D !important; color: #000 !important; border-color: #FDCC0D !important; box-shadow: 0 0 15px rgba(253, 204, 13, 0.4); }
+        /* Estilos base para evitar scroll horizontal y comportamientos raros en móvil */
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            background-color: #0f172a;
+            color: #f3f4f6;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        /* Ocultar barra de scroll para un look más limpio de App */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
     </style>
 </head>
-<body>
+<body class="selection:bg-sgxYellow/30 flex flex-col max-w-md mx-auto relative min-h-screen shadow-2xl shadow-sgxBlue/20">
 
-    <div id="ui-container" class="ui-transition ui-layer flex flex-col justify-between p-4 sm:p-8 pointer-events-none">
-        <!-- Header -->
-        <div class="flex justify-between items-start">
-            <div class="glass-panel p-5 rounded-br-3xl border-l-4 border-l-sgx-yellow shadow-2xl">
-                <h1 class="text-3xl sm:text-5xl font-bold tracking-[0.2em] text-sgx-yellow glitch-text" data-text="SGX.STAGE">SGX.STAGE</h1>
-                <p class="font-tech text-[10px] text-gray-400 mt-1 uppercase tracking-[0.4em]">Module: Kinetic_Engine_v3.9_Max</p>
-            </div>
-            <div class="text-right glass-panel px-5 py-3 rounded-bl-3xl border-r-4 border-r-sgx-yellow hidden sm:block shadow-2xl">
-                <p class="font-tech text-[10px] text-sgx-yellow uppercase tracking-widest italic">Caribbean_Engineering_Node</p>
-                <p class="font-tech text-[10px] text-white tracking-widest">CLK: <span id="clock-display">00:00:00</span></p>
-            </div>
-        </div>
-
-        <!-- Panel de Control Principal (HUD) -->
-        <div class="absolute right-4 sm:right-8 top-24 sm:top-36 w-[calc(100vw-2rem)] sm:w-80 max-h-[75vh] overflow-y-auto glass-panel p-6 rounded-2xl flex flex-col space-y-6 interactive-element shadow-2xl custom-scrollbar pointer-events-auto" id="control-panel">
-            <div class="flex items-center justify-between border-b border-sgx-yellow/10 pb-4">
-                <h2 class="text-sgx-yellow font-bold tracking-widest text-xs uppercase italic font-tech underline underline-offset-8 decoration-sgx-yellow/20">System Overrides</h2>
-                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]"></div>
-            </div>
-            
-            <button id="audio-btn" class="w-full py-4 bg-transparent border-2 border-sgx-yellow text-sgx-yellow font-bold text-[10px] uppercase tracking-[0.3em] transition-all duration-300 hover:bg-sgx-yellow hover:text-black shadow-lg active:scale-95">
-                [ Initialize Audio Sink ]
-            </button>
-
-            <!-- Media Injection -->
-            <div class="space-y-3 pt-2 border-t border-sgx-yellow/10">
-                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 block text-center italic text-sgx-yellow/80">Media Injection</label>
-                <div class="grid grid-cols-3 gap-1">
-                    <button id="upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all">GLB</button>
-                    <button id="bg-upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all">BG IMG</button>
-                    <button id="tex-upload-trigger" class="py-2 border border-white/10 text-white text-[8px] uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded transition-all" title="Envelopes model in 360">TEX MASK</button>
-                </div>
-                <div class="space-y-1 mt-2">
-                    <label class="text-[9px] text-gray-400 font-tech flex justify-between uppercase"><span>Texture Coverage (Tiling)</span><span id="val-tex-scale" class="text-white">0.1</span></label>
-                    <input type="range" id="ctrl-tex-scale" min="0.01" max="1" step="0.01" value="0.1" class="w-full">
-                </div>
-                <input type="file" id="glb-upload" accept=".glb" class="hidden">
-                <input type="file" id="bg-upload" accept="image/*" class="hidden">
-                <input type="file" id="tex-upload" accept="image/*" class="hidden">
-            </div>
-
-            <!-- Physics Logic -->
-            <div class="space-y-4 pt-2 border-t border-sgx-yellow/10">
-                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 flex justify-between italic text-sgx-yellow/80">
-                    <span>Physics Logic</span>
-                    <button id="erratic-btn" class="text-white hover:text-sgx-yellow transition-colors font-tech text-[8px]">[ MAX ERRATIC ]</button>
-                </label>
-                <div class="grid grid-cols-4 gap-1">
-                    <button class="axis-btn toggle-btn text-[8px] py-2 rounded" data-axis="x">ROT_X</button>
-                    <button class="axis-btn toggle-btn active text-[8px] py-2 rounded" data-axis="y">ROT_Y</button>
-                    <button class="axis-btn toggle-btn text-[8px] py-2 rounded" data-axis="z">ROT_Z</button>
-                    <button id="rotate-toggle" class="toggle-btn active text-[8px] py-2 rounded font-bold italic">POWER</button>
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Global Velocity</span><span id="val-speed" class="text-white">0.01</span></label>
-                    <input type="range" id="ctrl-speed" min="0" max="0.3" step="0.001" value="0.01" class="w-full">
-                </div>
-            </div>
-
-            <!-- Morphology Matrix -->
-            <div class="space-y-3 pt-2 border-t border-sgx-yellow/10">
-                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest pl-2 italic text-sgx-yellow/80">Morphology Matrix</label>
-                <div class="grid grid-cols-3 gap-1">
-                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="reactor">REACTOR</button>
-                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="gear">CHAMFER_GEAR</button>
-                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="triangle">INFINITY_TRI</button>
-                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="mobius">LEMNISCATA</button>
-                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="knot">NEXUS_KNOT</button>
-                    <button class="geo-btn text-[8px] border border-white/5 hover:border-sgx-yellow text-white py-2 rounded bg-white/5 transition-all" data-geo="pillar">DATA_PILLAR</button>
-                </div>
-                <div class="space-y-1 mt-2">
-                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Global Asset Scale</span><span id="val-asset-scale" class="text-white">1.0</span></label>
-                    <input type="range" id="ctrl-asset-scale" min="0.1" max="5.0" step="0.05" value="1.0" class="w-full">
-                </div>
-            </div>
-
-            <!-- Geometry Shaders -->
-            <div class="space-y-4 pt-2 border-t border-sgx-yellow/10">
-                <div class="space-y-1">
-                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Blueprint / Density</span><span id="val-density" class="text-white">1.0</span></label>
-                    <input type="range" id="ctrl-density" min="0" max="1" step="0.05" value="1.0" class="w-full">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Mesh Distortion</span><span id="val-distortion" class="text-white">0.5</span></label>
-                    <input type="range" id="ctrl-distortion" min="0" max="3" step="0.1" value="0.5" class="w-full">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Audio Gain</span><span id="val-sens" class="text-white">2.0</span></label>
-                    <input type="range" id="ctrl-sens" min="0.1" max="10" step="0.2" value="2.0" class="w-full">
-                </div>
-            </div>
-
-            <!-- Chroma Mapping -->
-            <div class="pt-2 border-t border-sgx-yellow/10 text-center">
-                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest mb-3 block italic underline underline-offset-4 decoration-sgx-yellow/30">Chroma Matrix Mapping</label>
-                <div class="grid grid-cols-3 gap-3 px-2">
-                    <div class="text-center"><label class="text-[7px] text-gray-500 uppercase mb-1 block">Primary</label><input type="color" id="color-1" value="#FDCC0D" class="color-input"></div>
-                    <div class="text-center"><label class="text-[7px] text-gray-500 uppercase mb-1 block">Core</label><input type="color" id="color-2" value="#32527B" class="color-input"></div>
-                    <div class="text-center"><label class="text-[7px] text-gray-500 uppercase mb-1 block">Accent</label><input type="color" id="color-3" value="#B87333" class="color-input"></div>
-                </div>
-            </div>
-
-            <!-- Atmosphere -->
-            <div class="space-y-4 pt-4 border-t border-sgx-yellow/10">
-                <label class="text-[9px] text-gray-500 font-tech uppercase tracking-widest italic pl-2">Atmosphere</label>
-                <div class="space-y-1">
-                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Particle Density</span><span id="val-part-count" class="text-white">5000</span></label>
-                    <input type="range" id="ctrl-part-count" min="500" max="15000" step="500" value="5000" class="w-full">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Particle Size</span><span id="val-part-size" class="text-white">0.05</span></label>
-                    <input type="range" id="ctrl-part-size" min="0.01" max="0.5" step="0.01" value="0.05" class="w-full">
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer Stats -->
-        <div class="flex justify-between items-end font-tech text-[10px] text-gray-500 pb-16 sm:pb-0">
-            <div class="glass-panel px-4 py-2 rounded-tr-2xl border-b-2 border-b-sgx-yellow shadow-xl">
-                <p>OUTPUT: <span id="fps-counter" class="text-white">60</span> FPS // <span id="status-text" class="text-sgx-copper uppercase font-bold italic animate-pulse tracking-widest">Standby</span></p>
-                <p class="opacity-50 text-[8px]">SGX_ENGINE_V3 // TRIPLANAR_ACTIVE</p>
-            </div>
-            <div class="text-right hidden sm:block opacity-30 leading-tight uppercase font-tech tracking-widest">
-                <p>Spatialgineers LLC</p>
-                <p>Engineering Realities</p>
-            </div>
+    <!-- ========================================== -->
+    <!-- PANTALLA DE CARGA -->
+    <!-- ========================================== -->
+    <div id="loading-screen" class="absolute inset-0 z-[100] bg-slateBg flex items-center justify-center text-sgxYellow font-mono">
+        <div class="animate-pulse flex flex-col items-center">
+            <i data-lucide="box" class="w-12 h-12 mb-4 animate-spin-slow"></i>
+            <p>INICIANDO SGX SYSTEMS...</p>
         </div>
     </div>
 
-    <!-- HUD Toggle Button -->
-    <button id="toggle-ui-btn" class="absolute bottom-6 right-6 interactive-element px-6 py-3 border-2 border-sgx-yellow/40 text-sgx-yellow bg-black/90 backdrop-blur-2xl rounded-full font-tech text-[10px] tracking-[0.4em] z-50 hover:bg-sgx-yellow hover:text-black transition-all shadow-2xl">
-        HUD: HIDE [H]
-    </button>
-
-    <div class="scanlines"></div>
-    <div id="canvas-container"></div>
-
-    <script>
-        // Los Shaders GLSL ahora están inyectados directamente como variables
-        // Esto elimina cualquier error de 'textContent' nulo por falta de sincronización del DOM
-        const vertexShaderGLSL = `
-            uniform float uTime;
-            uniform float uAudioData;
-            uniform float uNoiseAmpBase;
-            uniform float uAudioSens;
-            uniform vec2 uMouse;
-            uniform float uClickExplode;
-            varying vec2 vUv;
-            varying vec3 vNormal;
-            varying vec3 vPosition;
-
-            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-            float snoise(vec3 v) {
-                const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-                vec3 i = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
-                vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
-                vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy;
-                i = mod289(i);
-                vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-                float n_ = 0.142857142857; vec3 ns = n_ * D.wyz - D.xzx;
-                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-                vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
-                vec4 x = x_ * ns.x + ns.yyyy; vec4 y = y_ * ns.x + ns.yyyy;
-                vec4 h = 1.0 - abs(x) - abs(y);
-                vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
-                vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
-                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-                vec3 p0 = vec3(a0.xy, h.x); vec3 p1 = vec3(a0.zw, h.y); vec3 p2 = vec3(a1.xy, h.z); vec3 p3 = vec3(a1.zw, h.w);
-                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-                p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m;
-                return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-            }
-
-            void main() {
-                vUv = uv;
-                vNormal = normalize(normalMatrix * normal);
-                float noiseFreq = 0.6 + (uMouse.x * 0.2);
-                float noiseAmp = uNoiseAmpBase + (uAudioData * uAudioSens);
-                vec3 noisePos = vec3(position.x * noiseFreq + uTime * 0.2, position.y * noiseFreq + uTime * 0.2, position.z * noiseFreq);
-                float noiseVal = snoise(noisePos) * noiseAmp;
-                
-                float explodeEffect = snoise(position * 2.5 + uTime) * uClickExplode;
-                
-                vec3 newPosition = position + normal * (noiseVal + explodeEffect);
-                vPosition = newPosition;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
-            }
-        `;
-
-        const fragmentShaderGLSL = `
-            uniform float uTime;
-            uniform vec3 uColor1;
-            uniform vec3 uColor2;
-            uniform vec3 uColor3;
-            uniform float uAudioData;
-            uniform float uDensity;
-            uniform sampler2D uTexMask;
-            uniform bool uHasTex;
-            uniform float uTexScale;
-            varying vec2 vUv;
-            varying vec3 vNormal;
-            varying vec3 vPosition;
-
-            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-            float snoise(vec3 v) {
-                const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-                vec3 i = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
-                vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
-                vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy;
-                i = mod289(i);
-                vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-                float n_ = 0.142857142857; vec3 ns = n_ * D.wyz - D.xzx;
-                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-                vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
-                vec4 x = x_ * ns.x + ns.yyyy; vec4 y = y_ * ns.x + ns.yyyy;
-                vec4 h = 1.0 - abs(x) - abs(y);
-                vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
-                vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
-                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-                vec3 p0 = vec3(a0.xy, h.x); vec3 p1 = vec3(a0.zw, h.y); vec3 p2 = vec3(a1.xy, h.z); vec3 p3 = vec3(a1.zw, h.w);
-                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-                p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m;
-                return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-            }
-
-            void main() {
-                // MEZCLA DE COLOR GLOBAL basada en posición espacial
-                float noiseVal = snoise(vPosition * 0.12 + uTime * 0.2) * 0.5 + 0.5;
-                vec3 color = mix(uColor1, uColor2, smoothstep(0.1, 0.9, noiseVal));
-                color = mix(color, uColor3, cos(vPosition.y * 0.5 - uTime * 0.4) * uAudioData);
-                
-                if(uHasTex) {
-                    // TRIPLANAR MAPPING PRO: Cobertura total 360 grados
-                    vec3 blending = abs(vNormal);
-                    blending /= (blending.x + blending.y + blending.z);
-                    
-                    vec2 xUV = vPosition.yz * uTexScale;
-                    vec2 yUV = vPosition.xz * uTexScale;
-                    vec2 zUV = vPosition.xy * uTexScale;
-                    
-                    vec4 xTex = texture2D(uTexMask, xUV);
-                    vec4 yTex = texture2D(uTexMask, yUV);
-                    vec4 zTex = texture2D(uTexMask, zUV);
-                    
-                    vec4 triplanarTex = xTex * blending.x + yTex * blending.y + zTex * blending.z;
-                    color = mix(color, triplanarTex.rgb, 0.7);
-                }
-
-                vec3 viewDir = normalize(cameraPosition - vPosition);
-                float fresnel = pow(1.0 - clamp(dot(viewDir, vNormal), 0.0, 1.0), 3.0);
-                vec3 finalColor = color + (fresnel * uColor1 * (1.5 + uAudioData * 4.0));
-                float alpha = mix(0.4, 1.0, uDensity);
-                gl_FragColor = vec4(finalColor, alpha);
-            }
-        `;
-
-        let scene, camera, renderer, tiltGroup, activeGroup, coreWireframe, particlesMesh, gridHelper, uniforms, reactiveMaterial;
-        let audioContext, analyser, dataArray, isAudioInitialized = false;
-        let mouse = new THREE.Vector2(), targetMouse = new THREE.Vector2();
-        let windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
-        let clickExplodeTarget = 0.0;
+    <!-- ========================================== -->
+    <!-- NAVEGACIÓN SUPERIOR -->
+    <!-- ========================================== -->
+    <header id="main-header" class="hidden bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-4 sticky top-0 z-50 flex justify-between items-center">
+        <div class="flex items-center space-x-2 text-sgxYellow">
+            <i data-lucide="box" class="w-6 h-6"></i>
+            <h1 class="font-bold tracking-wider text-sm">SGX <span class="text-white">AR</span></h1>
+        </div>
         
-        let globalGLTFLoader;
+        <div class="flex bg-slate-800 rounded-full p-1 border border-slate-700">
+            <button id="nav-user-btn" class="px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center space-x-1 bg-sgxYellow text-gray-950">
+                <i data-lucide="user" class="w-3 h-3"></i> <span>App</span>
+            </button>
+            <button id="nav-admin-btn" class="px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center space-x-1 text-gray-400 hover:text-white">
+                <i data-lucide="layout-dashboard" class="w-3 h-3"></i> <span>Estudio</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ========================================== -->
+    <!-- CONTENIDO PRINCIPAL -->
+    <!-- ========================================== -->
+    <main id="main-content" class="hidden flex-1 overflow-y-auto pb-24 relative">
         
-        let isRotating = true;
-        let rotationAxis = { x: false, y: true, z: false };
-        let rotationSpeed = 0.01;
-        let assetScale = 1.0;
-        let currentMorphology = 'reactor';
-        let lemniscataAnimParam = 0;
+        <!-- ESTUDIO (ADMIN) -->
+        <div id="view-admin" class="hidden p-6 space-y-6">
+            <div class="flex justify-between items-end border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Spatialgineers Hub</h2>
+                    <p class="text-sm text-gray-400">Despliega activos 3D para el mundo real.</p>
+                </div>
+                <button id="toggle-add-btn" class="bg-sgxBlue hover:bg-blue-800 text-white p-2 rounded-lg shadow-lg flex items-center transition-colors">
+                    <i data-lucide="plus" id="toggle-add-icon" class="w-5 h-5"></i>
+                </button>
+            </div>
 
-        const clock = new THREE.Clock();
-        const el = (id) => document.getElementById(id);
-        const safeSetText = (id, text) => { const item = el(id); if(item) item.innerText = text; };
+            <!-- Formulario de Creación -->
+            <form id="admin-add-form" onsubmit="event.preventDefault();" class="hidden bg-slate-900 border border-sgxBlue/50 p-5 rounded-xl space-y-4 shadow-xl shadow-sgxBlue/10">
+                <h3 class="font-semibold text-sgxYellow mb-2">Desplegar Nueva Experiencia</h3>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Nombre del Activo</label>
+                    <input type="text" id="input-title" required placeholder="ej., Infinite Borikua Wayuko" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:border-sgxYellow outline-none" />
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Descripción</label>
+                    <input type="text" id="input-desc" placeholder="Asset optimizado para WebXR" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:border-sgxYellow outline-none" />
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">URL del Modelo 3D (.glb)</label>
+                    <input type="url" id="input-model" value="https://modelviewer.dev/shared-assets/models/Astronaut.glb" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:border-sgxYellow outline-none font-mono text-xs" />
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">URL de la Imagen Miniatura</label>
+                    <input type="url" id="input-thumb" value="https://images.unsplash.com/photo-1614729939124-032f0b56c9ce?auto=format&fit=crop&q=80&w=400" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:border-sgxYellow outline-none font-mono text-xs" />
+                </div>
+                <button type="submit" id="btn-submit-asset" class="w-full bg-sgxBlue hover:bg-blue-800 text-white py-2 rounded-lg font-bold mt-2 transition-colors">Generar Código SGX</button>
+            </form>
 
-        // Función robusta para generar geometría paramétrica nativamente
-        function createParametricGeometry(func, slices, stacks) {
-            const vertices = [];
-            const uvs = [];
-            const indices = [];
-            const p0 = new THREE.Vector3();
-            for (let i = 0; i <= stacks; i++) {
-                const v = i / stacks;
-                for (let j = 0; j <= slices; j++) {
-                    const u = j / slices;
-                    func(u, v, p0);
-                    vertices.push(p0.x, p0.y, p0.z);
-                    uvs.push(u, v);
+            <!-- Lista de Activos Admin -->
+            <div id="admin-assets-list" class="space-y-4">
+                <!-- Se llena con JS -->
+            </div>
+        </div>
+
+        <!-- APP (USER) -->
+        <div id="view-user" class="block">
+            
+            <!-- HOME -->
+            <div id="screen-home" class="p-6 block">
+                <div class="mb-8 mt-4">
+                    <h2 class="text-3xl font-bold text-white mb-1">Tu Colección SGX</h2>
+                    <p class="text-slate-400">Ingresa códigos para desbloquear activos 3D.</p>
+                </div>
+                
+                <div id="user-empty-state" class="flex flex-col items-center justify-center mt-20 text-center space-y-4">
+                    <div class="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center border border-slate-800 shadow-[0_0_50px_rgba(50,82,123,0.2)]">
+                        <i data-lucide="unlock" class="w-10 h-10 text-slate-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-300">Bóveda Vacía</h3>
+                        <p class="text-sm text-slate-500 max-w-[200px]">Encuentra códigos SGX o escanea QRs físicos para construir tu colección.</p>
+                    </div>
+                </div>
+
+                <div id="user-assets-grid" class="grid grid-cols-2 gap-4 hidden">
+                    <!-- Se llena con JS -->
+                </div>
+            </div>
+
+            <!-- UNLOCK SCREEN -->
+            <div id="screen-unlock" class="absolute inset-0 bg-slateBg z-40 hidden flex-col">
+                <div class="p-4 flex justify-between items-center bg-slate-900/80 border-b border-slate-800 z-10">
+                    <button id="btn-close-unlock" class="p-2 bg-slate-800 rounded-full text-white hover:bg-slate-700 transition">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                    <div class="text-sgxYellow font-mono text-sm tracking-widest bg-sgxYellow/10 px-3 py-1 rounded-full border border-sgxYellow/30">
+                        DESBLOQUEO_SGX
+                    </div>
+                    <div class="w-10"></div> 
+                </div>
+
+                <div class="flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-sgxBlue/20 rounded-full blur-3xl pointer-events-none"></div>
+                    
+                    <div class="w-20 h-20 bg-slate-900 rounded-full border-2 border-sgxBlue flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(50,82,123,0.4)]">
+                        <i data-lucide="unlock" class="w-10 h-10 text-sgxYellow"></i>
+                    </div>
+
+                    <h3 class="text-2xl text-white font-bold mb-2 text-center">Desbloquear Activo</h3>
+                    <p class="text-sm text-slate-400 mb-8 text-center max-w-[280px]">
+                        Ingresa el código alfanumérico de 6 dígitos que aparece debajo del QR de Spatialgineers.
+                    </p>
+                    
+                    <form id="unlock-form" onsubmit="event.preventDefault();" class="w-full max-w-xs space-y-4 relative z-10">
+                        <input type="text" id="input-unlock-code" placeholder="Ej. A1B2C3" maxlength="8" class="w-full bg-slate-900 border-2 border-slate-700 rounded-xl px-4 py-4 text-center text-white font-mono text-2xl uppercase tracking-widest focus:border-sgxYellow outline-none transition-colors" />
+                        <button type="submit" id="btn-submit-unlock" class="w-full bg-sgxYellow hover:bg-yellow-400 text-gray-950 font-bold px-6 py-4 rounded-xl disabled:opacity-50 transition-colors shadow-lg">
+                            Desbloquear
+                        </button>
+                        <p id="unlock-error" class="hidden text-red-400 text-sm mt-2 font-mono text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20"></p>
+                    </form>
+                </div>
+            </div>
+
+            <!-- AR VIEWER SCREEN -->
+            <div id="screen-ar" class="absolute inset-0 bg-slateBg z-50 hidden flex-col">
+                <div class="p-4 flex items-center bg-slate-900/50 backdrop-blur-md absolute top-0 w-full z-10 border-b border-white/5">
+                    <button id="btn-close-ar" class="p-2 bg-black/40 rounded-full text-white mr-4 hover:bg-black/60 transition">
+                        <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                    </button>
+                    <div>
+                        <h2 id="ar-title" class="text-white font-bold">Título</h2>
+                        <p class="text-xs text-sgxYellow font-mono tracking-widest">SPATIALGINEERS ASSET</p>
+                    </div>
+                </div>
+
+                <div class="flex-1 relative w-full h-full bg-gradient-to-b from-slateBg to-black">
+                    <!-- Model Viewer inyectado vía JS -->
+                    <div id="model-viewer-container" class="w-full h-full"></div>
+                </div>
+                
+                <div class="bg-slate-900 p-6 border-t border-slate-800 rounded-t-3xl relative -mt-4 z-10 pb-10">
+                    <div class="w-12 h-1 bg-slate-700 rounded-full mx-auto mb-6"></div>
+                    <div class="flex flex-col space-y-4">
+                        <p id="ar-desc" class="text-slate-300 text-sm leading-relaxed">Descripción</p>
+                        <div class="mt-2 flex items-center justify-between border-t border-slate-800 pt-4">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-2 h-2 rounded-full bg-sgxYellow animate-pulse"></div>
+                                <span class="text-xs text-sgxYellow font-mono uppercase tracking-wider">Activo listo para proyección</span>
+                            </div>
+                            <div class="text-[10px] text-slate-500 font-mono">
+                                SGX.SHOWCASE
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ========================================== -->
+    <!-- BARRA INFERIOR (Solo en Modo Usuario y Home) -->
+    <!-- ========================================== -->
+    <div id="bottom-nav" class="hidden absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-slateBg via-slateBg to-transparent flex justify-center z-30">
+        <button id="btn-open-scanner" class="bg-sgxYellow hover:bg-yellow-400 text-gray-950 rounded-full py-4 px-8 font-bold shadow-[0_0_30px_rgba(253,204,13,0.3)] flex items-center space-x-2 transition-transform active:scale-95">
+            <i data-lucide="key-round" class="w-6 h-6"></i>
+            <span>Ingresar Código SGX</span>
+        </button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- LÓGICA JAVASCRIPT (VANILLA + FIREBASE) -->
+    <!-- ========================================== -->
+    <script type="module">
+        // 1. IMPORTACIONES DE FIREBASE VÍA CDN
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        // Añadimos setPersistence e inMemoryPersistence para evitar bloqueos en iframes de validación
+        import { getAuth, signInAnonymously, onAuthStateChanged, setPersistence, inMemoryPersistence } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        // 2. CONFIGURACIÓN
+        const firebaseConfig = {
+            apiKey: "AIzaSyDc9tMhojxBYIDAbu5GMAqW4vNTc_AqX5Y",
+            authDomain: "sgx-ar-hunt.firebaseapp.com",
+            projectId: "sgx-ar-hunt",
+            storageBucket: "sgx-ar-hunt.firebasestorage.app",
+            messagingSenderId: "275961437368",
+            appId: "1:275961437368:web:374b6fe7332a49e680284d",
+            measurementId: "G-QV8KZR2V97"
+        };
+        
+        // Tu dominio final solicitado
+        const APP_BASE_URL = "https://spatialgineers.github.io/SGX/"; 
+        const APP_ID = "sgx-ar-hunt";
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // 3. ESTADO GLOBAL
+        let currentUser = null;
+        let publicAssets = [];
+        let unlockedAssetIds = [];
+        let isAddingFormVisible = false;
+
+        // 4. ELEMENTOS DEL DOM
+        const elLoading = document.getElementById('loading-screen');
+        const elHeader = document.getElementById('main-header');
+        const elMainContent = document.getElementById('main-content');
+        const elBottomNav = document.getElementById('bottom-nav');
+        
+        // Vistas principales
+        const viewAdmin = document.getElementById('view-admin');
+        const viewUser = document.getElementById('view-user');
+        
+        // Pantallas Usuario
+        const screenHome = document.getElementById('screen-home');
+        const screenUnlock = document.getElementById('screen-unlock');
+        const screenAr = document.getElementById('screen-ar');
+
+        // Botones Navegación Superior
+        const btnNavUser = document.getElementById('nav-user-btn');
+        const btnNavAdmin = document.getElementById('nav-admin-btn');
+        
+        // 5. INICIALIZACIÓN
+        lucide.createIcons(); // Renderizar iconos iniciales
+
+        // Comprobar parámetros de URL al cargar
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            if (code) {
+                document.getElementById('input-unlock-code').value = code.toUpperCase();
+            }
+        });
+
+        // 6. CARGAR ACTIVOS PÚBLICOS INDEPENDIENTEMENTE DE AUTH
+        // Esto previene que si Auth falla en un iframe, no se bloquee la lista
+        const assetsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'ar_assets');
+        onSnapshot(assetsRef, (snapshot) => {
+            publicAssets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderAdminList();
+            if(currentUser) renderUserGrid();
+        }, (error) => console.error("Error fetching public assets:", error));
+
+
+        // 7. AUTENTICACIÓN
+        const initAuth = async () => {
+            try {
+                // Fueraza la memoria temporal para evitar bloqueos de iframes embebidos
+                await setPersistence(auth, inMemoryPersistence);
+                await signInAnonymously(auth);
+            } catch (err) {
+                console.error("Auth error (Puede que tu navegador bloquee cookies de terceros):", err);
+                // Si falla, aún mostramos la interfaz pero en un estado limitado
+                elLoading.classList.add('hidden');
+                elHeader.classList.remove('hidden');
+                elMainContent.classList.remove('hidden');
+                showHome();
+            }
+        };
+        initAuth();
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                
+                // Fetch User's Unlocked Assets
+                const unlockedRef = collection(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'unlocked');
+                onSnapshot(unlockedRef, (snapshot) => {
+                    unlockedAssetIds = snapshot.docs.map(doc => doc.data().assetId);
+                    renderUserGrid();
+                }, (error) => console.error("Error fetching unlocked assets:", error));
+                
+                // Quitar loading y mostrar app
+                elLoading.classList.add('hidden');
+                elHeader.classList.remove('hidden');
+                elMainContent.classList.remove('hidden');
+                
+                // Comprobar URL de nuevo tras login
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('code')) {
+                    openUnlockScreen();
+                } else {
+                    showHome();
                 }
             }
-            for (let i = 0; i < stacks; i++) {
-                for (let j = 0; j < slices; j++) {
-                    const a = i * (slices + 1) + (j + 1);
-                    const b = i * (slices + 1) + j;
-                    const c = (i + 1) * (slices + 1) + j;
-                    const d = (i + 1) * (slices + 1) + (j + 1);
-                    indices.push(a, b, d);
-                    indices.push(b, c, d);
-                }
+        });
+
+        // 8. RENDERIZADO DE INTERFAZ (UI)
+        
+        // Renderizar Lista Admin
+        function renderAdminList() {
+            const listEl = document.getElementById('admin-assets-list');
+            if (publicAssets.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-10 border border-dashed border-slate-800 rounded-xl">
+                        <i data-lucide="box" class="w-10 h-10 mx-auto text-slate-600 mb-2"></i>
+                        <p class="text-slate-500">No hay activos desplegados aún.</p>
+                    </div>`;
+            } else {
+                listEl.innerHTML = publicAssets.map(asset => {
+                    // Genera la URL con el dominio nuevo solicitado
+                    const finalAppUrl = `${APP_BASE_URL}?code=${asset.id}`;
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(finalAppUrl)}&color=000000&bgcolor=ffffff`;
+                    
+                    return `
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex gap-4 items-center">
+                        <div class="bg-white p-2 rounded-xl shrink-0 text-center shadow-inner">
+                            <img src="${qrUrl}" alt="QR Code" class="w-20 h-20 rounded mb-1 mx-auto" />
+                            <span class="text-black font-mono font-bold text-[11px] uppercase tracking-widest">${asset.id}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-bold text-lg text-white truncate">${asset.title}</h4>
+                            <p class="text-xs text-slate-400 truncate mb-2">${asset.description}</p>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] bg-slate-800 text-sgxYellow px-2 py-1 rounded font-mono border border-sgxYellow/30">
+                                    ID: ${asset.id}
+                                </span>
+                            </div>
+                        </div>
+                        <button onclick="window.deleteAsset('${asset.id}')" class="text-slate-500 hover:text-red-400 p-2 transition-colors">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
+                    </div>`;
+                }).join('');
             }
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-            geo.setIndex(indices);
-            geo.computeVertexNormals();
-            return geo;
+            lucide.createIcons(); // Recargar iconos nuevos
         }
 
-        window.onload = () => { init(); animate(); setupEventListeners(); };
+        // Función Global para borrar
+        window.deleteAsset = async (id) => {
+            if(confirm("¿Seguro que deseas eliminar este activo SGX?")) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'ar_assets', id));
+                } catch(e) { console.error("Error al borrar", e); }
+            }
+        };
 
-        function init() {
-            const container = el('canvas-container');
-            if(!container) return;
-
-            scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x010101, 0.005);
+        // Renderizar Grid Usuario
+        function renderUserGrid() {
+            const emptyEl = document.getElementById('user-empty-state');
+            const gridEl = document.getElementById('user-assets-grid');
             
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 20000);
-            camera.position.set(0, 5, 60);
+            const userUnlockedAssets = publicAssets.filter(asset => unlockedAssetIds.includes(asset.id));
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.toneMapping = THREE.ReinhardToneMapping;
-            renderer.toneMappingExposure = 1.2;
-            container.appendChild(renderer.domElement);
+            if (userUnlockedAssets.length === 0) {
+                emptyEl.classList.remove('hidden');
+                emptyEl.classList.add('flex');
+                gridEl.classList.add('hidden');
+            } else {
+                emptyEl.classList.add('hidden');
+                emptyEl.classList.remove('flex');
+                gridEl.classList.remove('hidden');
+                
+                gridEl.innerHTML = userUnlockedAssets.map(asset => `
+                    <div onclick="window.viewAsset('${asset.id}')" class="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 cursor-pointer hover:border-sgxYellow/50 transition-all group relative">
+                        <div class="absolute top-2 right-2 z-10 bg-black/50 backdrop-blur-md p-1.5 rounded-full border border-slate-700">
+                            <i data-lucide="box" class="w-3 h-3 text-sgxYellow"></i>
+                        </div>
+                        <img src="${asset.thumbnailUrl}" alt="${asset.title}" class="w-full h-32 object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                        <div class="p-3 bg-gradient-to-t from-slate-900 to-transparent absolute bottom-0 w-full">
+                            <h4 class="font-bold text-sm text-white truncate drop-shadow-md">${asset.title}</h4>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            lucide.createIcons();
+        }
 
-            // INSTANCIACIÓN ROBUSTA DE CARGADORES PRO
-            globalGLTFLoader = new THREE.GLTFLoader();
+        // Función Global para ver en AR
+        window.viewAsset = (id) => {
+            const asset = publicAssets.find(a => a.id === id);
+            if(asset) openARViewer(asset);
+        }
+
+        // 9. NAVEGACIÓN Y CONTROLADORES DE PANTALLA
+        
+        // Cambiar a Vista Admin
+        btnNavAdmin.addEventListener('click', () => {
+            viewUser.classList.add('hidden');
+            viewAdmin.classList.remove('hidden');
+            elBottomNav.classList.add('hidden');
+            
+            // Estilos de botones
+            btnNavAdmin.className = "px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center space-x-1 bg-sgxBlue text-white";
+            btnNavUser.className = "px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center space-x-1 text-gray-400 hover:text-white";
+        });
+
+        // Cambiar a Vista Usuario
+        btnNavUser.addEventListener('click', showHome);
+
+        function showHome() {
+            viewAdmin.classList.add('hidden');
+            viewUser.classList.remove('hidden');
+            
+            screenUnlock.classList.add('hidden');
+            screenUnlock.classList.remove('flex');
+            
+            screenAr.classList.add('hidden');
+            screenAr.classList.remove('flex');
+
+            screenHome.classList.add('block');
+            screenHome.classList.remove('hidden');
+            
+            elBottomNav.classList.remove('hidden');
+
+            // Estilos de botones
+            btnNavUser.className = "px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center space-x-1 bg-sgxYellow text-gray-950";
+            btnNavAdmin.className = "px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center space-x-1 text-gray-400 hover:text-white";
+        }
+
+        function openUnlockScreen() {
+            viewAdmin.classList.add('hidden');
+            viewUser.classList.remove('hidden');
+            
+            screenHome.classList.add('hidden');
+            screenHome.classList.remove('block');
+            
+            screenAr.classList.add('hidden');
+            screenAr.classList.remove('flex');
+            
+            elBottomNav.classList.add('hidden');
+
+            screenUnlock.classList.remove('hidden');
+            screenUnlock.classList.add('flex');
+
+            btnNavUser.className = "px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center space-x-1 bg-sgxYellow text-gray-950";
+            btnNavAdmin.className = "px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center space-x-1 text-gray-400 hover:text-white";
+            
+            document.getElementById('unlock-error').classList.add('hidden');
+        }
+
+        function openARViewer(asset) {
+            screenHome.classList.add('hidden');
+            screenHome.classList.remove('block');
+            
+            screenUnlock.classList.add('hidden');
+            screenUnlock.classList.remove('flex');
+
+            elBottomNav.classList.add('hidden');
+
+            document.getElementById('ar-title').innerText = asset.title;
+            document.getElementById('ar-desc').innerText = asset.description;
+            
+            // Inyectar <model-viewer> dinámicamente
+            const container = document.getElementById('model-viewer-container');
+            container.innerHTML = `
+                <model-viewer 
+                    id="sgx-ar-viewer"
+                    src="${asset.modelUrl}" 
+                    ar 
+                    ar-modes="webxr scene-viewer quick-look" 
+                    camera-controls 
+                    auto-rotate
+                    shadow-intensity="1"
+                    exposure="1.2"
+                    environment-image="neutral"
+                    style="width: 100%; height: 100%; outline: none;"
+                >
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-20 hidden md:block text-center">
+                        <i data-lucide="box" class="w-24 h-24 mx-auto mb-4 text-white"></i>
+                        <p class="font-mono text-sm tracking-widest text-white">ARRASTRA PARA ROTAR</p>
+                        <p class="font-mono text-xs mt-2 text-white">ABRE EN MÓVIL PARA AR</p>
+                    </div>
+                </model-viewer>
+                
+                <!-- BOTÓN FORZADO MANUAL: Este botón siempre se verá y llamará a la función nativa de AR -->
+                <button onclick="document.getElementById('sgx-ar-viewer').activateAR()" class="absolute bottom-32 left-1/2 -translate-x-1/2 w-64 bg-sgxYellow text-gray-950 py-4 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(253,204,13,0.4)] flex justify-center items-center space-x-2 transition-transform active:scale-95 z-[60]">
+                    <i data-lucide="camera" class="w-6 h-6"></i>
+                    <span>Ver en Cámara AR</span>
+                </button>
+            `;
+            lucide.createIcons();
+
+            screenAr.classList.remove('hidden');
+            screenAr.classList.add('flex');
+        }
+
+        // Clics directos
+        document.getElementById('btn-open-scanner').addEventListener('click', openUnlockScreen);
+        document.getElementById('btn-close-unlock').addEventListener('click', showHome);
+        document.getElementById('btn-close-ar').addEventListener('click', () => {
+            document.getElementById('model-viewer-container').innerHTML = ''; // Limpiar memoria 3D
+            showHome();
+        });
+
+
+        // 10. LÓGICA DE FORMULARIOS
+
+        // Toggle form admin
+        const addForm = document.getElementById('admin-add-form');
+        const iconAdd = document.getElementById('toggle-add-icon');
+        document.getElementById('toggle-add-btn').addEventListener('click', () => {
+            isAddingFormVisible = !isAddingFormVisible;
+            if(isAddingFormVisible) {
+                addForm.classList.remove('hidden');
+                iconAdd.setAttribute('data-lucide', 'x');
+            } else {
+                addForm.classList.add('hidden');
+                iconAdd.setAttribute('data-lucide', 'plus');
+            }
+            lucide.createIcons();
+        });
+
+        // Crear Asset
+        document.getElementById('admin-add-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-asset');
+            btn.innerText = "Guardando...";
+            btn.disabled = true;
+
+            const title = document.getElementById('input-title').value;
+            const desc = document.getElementById('input-desc').value;
+            const modelUrl = document.getElementById('input-model').value;
+            const thumbUrl = document.getElementById('input-thumb').value;
+
+            const shortId = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const newDocRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'ar_assets', shortId);
             
             try {
-                if (typeof THREE.DRACOLoader !== 'undefined') {
-                    const dracoLoader = new THREE.DRACOLoader();
-                    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/libs/draco/');
-                    globalGLTFLoader.setDRACOLoader(dracoLoader);
-                }
-            } catch(e) { console.warn("DRACO init failed:", e); }
-            
-            try {
-                if (typeof THREE.KTX2Loader !== 'undefined') {
-                    const ktx2Loader = new THREE.KTX2Loader();
-                    ktx2Loader.setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/libs/basis/');
-                    ktx2Loader.detectSupport(renderer);
-                    globalGLTFLoader.setKTX2Loader(ktx2Loader);
-                }
-            } catch(e) { console.warn("KTX2 init failed:", e); }
-
-            uniforms = {
-                uTime: { value: 0.0 }, uAudioData: { value: 0.0 }, 
-                uColor1: { value: new THREE.Color(0xFDCC0D) },
-                uColor2: { value: new THREE.Color(0x32527B) }, 
-                uColor3: { value: new THREE.Color(0xB87333) }, 
-                uNoiseAmpBase: { value: 0.5 },
-                uAudioSens: { value: 2.0 }, uMouse: { value: new THREE.Vector2(0, 0) },
-                uDensity: { value: 1.0 },
-                uTexMask: { value: null }, uHasTex: { value: false }, uTexScale: { value: 0.1 },
-                uClickExplode: { value: 0.0 }
-            };
-
-            // Material utilizando los strings directos en JS
-            reactiveMaterial = new THREE.ShaderMaterial({
-                vertexShader: vertexShaderGLSL,
-                fragmentShader: fragmentShaderGLSL,
-                uniforms: uniforms, transparent: true, side: THREE.DoubleSide
-            });
-
-            tiltGroup = new THREE.Group();
-            scene.add(tiltGroup);
-
-            activeGroup = new THREE.Group();
-            tiltGroup.add(activeGroup);
-
-            changeMorphology('reactor');
-            createParticles(5000, 0.05);
-
-            gridHelper = new THREE.GridHelper(1000, 100, 0x32527B, 0x050505);
-            gridHelper.position.y = -50;
-            gridHelper.material.transparent = true;
-            gridHelper.material.opacity = 0.2;
-            scene.add(gridHelper);
-        }
-
-        function createParticles(count, size) {
-            if(particlesMesh) { scene.remove(particlesMesh); particlesMesh.geometry.dispose(); particlesMesh.material.dispose(); }
-            const geo = new THREE.BufferGeometry();
-            const pos = new Float32Array(count * 3);
-            for(let i = 0; i < count * 3; i++) { pos[i] = (Math.random() - 0.5) * 1000; }
-            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-            particlesMesh = new THREE.Points(geo, new THREE.PointsMaterial({ 
-                size: size, color: uniforms.uColor1.value, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending 
-            }));
-            scene.add(particlesMesh);
-        }
-
-        async function initAudio() {
-            try {
-                if (audioContext && audioContext.state === 'suspended') await audioContext.resume();
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const source = audioContext.createMediaStreamSource(stream);
-                analyser = audioContext.createAnalyser(); analyser.fftSize = 256;
-                source.connect(analyser);
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-                isAudioInitialized = true;
-                const btn = el('audio-btn');
-                if(btn) { btn.innerText = "REACTOR: ONLINE"; btn.classList.add('bg-sgx-yellow', 'text-black'); }
-                safeSetText('status-text', 'Live Synchronized');
-            } catch (err) { safeSetText('status-text', 'Access Denied'); }
-        }
-
-        function updateLemniscataGeometry(timeParam) {
-            const lemniscateFunc = (u, v, target) => {
-                u *= Math.PI * 2;
-                const scale = 20.0;
-                const x = (scale * Math.cos(u)) / (1.0 + Math.pow(Math.sin(u), 2.0));
-                const y = (scale * Math.sin(u) * Math.cos(u)) / (1.0 + Math.pow(Math.sin(u), 2.0));
-                const phi = v * Math.PI * 2;
-                const r = 3.0 + Math.sin(u * 2.0 + timeParam) * 1.0;
-                target.set(x + r * Math.cos(phi), y + r * Math.sin(phi), r * Math.sin(phi + u) + Math.sin(u + timeParam)*5.0);
-            };
-            const newGeo = createParametricGeometry(lemniscateFunc, 128, 32);
-            if (activeGroup.children.length > 0) {
-                activeGroup.children[0].geometry.dispose();
-                activeGroup.children[0].geometry = newGeo;
+                await setDoc(newDocRef, {
+                    title,
+                    description: desc,
+                    modelUrl,
+                    thumbnailUrl: thumbUrl,
+                    createdAt: serverTimestamp()
+                });
+                // Limpiar form
+                document.getElementById('input-title').value = '';
+                document.getElementById('input-desc').value = '';
+                
+                isAddingFormVisible = false;
+                addForm.classList.add('hidden');
+                iconAdd.setAttribute('data-lucide', 'plus');
+                lucide.createIcons();
+            } catch(err) {
+                console.error(err);
+                alert("Error al guardar");
             }
-        }
+            btn.innerText = "Generar Código SGX";
+            btn.disabled = false;
+        });
 
-        function changeMorphology(type) {
-            currentMorphology = type;
-            while(activeGroup.children.length > 0) activeGroup.remove(activeGroup.children[0]);
-            let newGeo, newWireGeo;
-            switch(type) {
-                case 'reactor': newGeo = new THREE.IcosahedronGeometry(12, 128); newWireGeo = new THREE.IcosahedronGeometry(12.2, 16); break;
-                case 'gear':
-                    const gearShape = new THREE.Shape();
-                    const teeth = 12, inner = 9, outer = 13;
-                    const step = Math.PI * 2 / teeth;
-                    for (let i = 0; i < teeth; i++) {
-                        const a = i * step;
-                        if (i === 0) gearShape.moveTo(Math.cos(a - 0.1)*inner, Math.sin(a - 0.1)*inner);
-                        gearShape.lineTo(Math.cos(a + 0.1)*inner, Math.sin(a + 0.1)*inner);
-                        gearShape.lineTo(Math.cos(a + 0.2)*outer, Math.sin(a + 0.2)*outer);
-                        gearShape.lineTo(Math.cos(a + step - 0.2)*outer, Math.sin(a + step - 0.2)*outer);
-                        gearShape.lineTo(Math.cos(a + step - 0.1)*inner, Math.sin(a + step - 0.1)*inner);
-                    }
-                    gearShape.closePath();
-                    const hole = new THREE.Path(); hole.absarc(0, 0, 5, 0, Math.PI * 2, true); gearShape.holes.push(hole);
-                    newGeo = new THREE.ExtrudeGeometry(gearShape, { depth: 6, bevelEnabled: true, bevelThickness: 0.8, bevelSize: 0.8, bevelSegments: 5, curveSegments: 64 });
-                    newWireGeo = newGeo.clone(); break;
-                case 'triangle': newGeo = new THREE.TorusGeometry(15, 7, 6, 128); newWireGeo = new THREE.TorusGeometry(15.3, 7.1, 6, 64); break;
-                case 'mobius':
-                    const dummyGeo = new THREE.BufferGeometry(); newGeo = dummyGeo; newWireGeo = dummyGeo.clone(); break;
-                case 'knot': newGeo = new THREE.TorusKnotGeometry(10, 4, 300, 64); newWireGeo = new THREE.TorusKnotGeometry(10.3, 4.1, 150, 32); break;
-                case 'pillar': newGeo = new THREE.CylinderGeometry(10, 10, 80, 128, 64); newWireGeo = new THREE.CylinderGeometry(10.2, 10.2, 80.2, 32, 16); break;
-            }
-            const mesh = new THREE.Mesh(newGeo, reactiveMaterial);
-            activeGroup.add(mesh);
-            coreWireframe = new THREE.Mesh(newWireGeo, new THREE.MeshBasicMaterial({ color: 0xFFFFFF, wireframe: true, transparent: true, opacity: 0.05 }));
-            activeGroup.add(coreWireframe);
-            if (type === 'mobius') updateLemniscataGeometry(0);
-            updateGroupScale();
-        }
-
-        function updateGroupScale() { activeGroup.scale.set(assetScale, assetScale, assetScale); }
-
-        function setupEventListeners() {
-            window.addEventListener('resize', () => { windowHalfX = window.innerWidth / 2; windowHalfY = window.innerHeight / 2; camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
-            document.addEventListener('mousemove', (e) => { targetMouse.set((e.clientX - windowHalfX) / windowHalfX, (e.clientY - windowHalfY) / windowHalfY); });
-            document.addEventListener('touchmove', (e) => { if(e.touches.length > 0) targetMouse.set((e.touches[0].clientX - windowHalfX) / windowHalfX, (e.touches[0].clientY - windowHalfY) / windowHalfY); });
-
-            const ui = el('ui-container'), btn = el('toggle-ui-btn');
-            if(btn && ui) btn.onclick = () => { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; };
-            document.addEventListener('keydown', (e) => { if((e.key.toLowerCase() === 'h' || e.key === 'Escape') && ui && btn) { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; } });
+        // Formulario de Desbloqueo
+        document.getElementById('unlock-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-unlock');
+            const errorEl = document.getElementById('unlock-error');
+            const scanId = document.getElementById('input-unlock-code').value.toUpperCase().trim();
             
-            document.addEventListener('click', (e) => { 
-                if (audioContext && audioContext.state === 'suspended') audioContext.resume(); 
-                if(!e.target.closest('.interactive-element')) clickExplodeTarget = 8.0;
-            });
+            if(!scanId) return;
 
-            if(el('audio-btn')) el('audio-btn').onclick = (e) => { e.stopPropagation(); if(!isAudioInitialized) initAudio(); };
-            if(el('ctrl-distortion')) el('ctrl-distortion').oninput = (e) => { uniforms.uNoiseAmpBase.value = parseFloat(e.target.value); safeSetText('val-distortion', e.target.value); };
-            if(el('ctrl-sens')) el('ctrl-sens').oninput = (e) => { uniforms.uAudioSens.value = parseFloat(e.target.value); safeSetText('val-sens', e.target.value); };
-            if(el('ctrl-density')) el('ctrl-density').oninput = (e) => { uniforms.uDensity.value = parseFloat(e.target.value); safeSetText('val-density', e.target.value); if(coreWireframe) coreWireframe.material.opacity = (1 - parseFloat(e.target.value)) * 0.4 + 0.05; };
-            if(el('ctrl-part-count')) el('ctrl-part-count').onchange = (e) => { createParticles(parseInt(e.target.value), parseFloat(el('ctrl-part-size').value)); safeSetText('val-part-count', e.target.value); };
-            if(el('ctrl-part-size')) el('ctrl-part-size').oninput = (e) => { if(particlesMesh) particlesMesh.material.size = parseFloat(e.target.value); safeSetText('val-part-size', e.target.value); };
-            if(el('ctrl-tex-scale')) el('ctrl-tex-scale').oninput = (e) => { uniforms.uTexScale.value = parseFloat(e.target.value); safeSetText('val-tex-scale', e.target.value); };
-            if(el('ctrl-asset-scale')) el('ctrl-asset-scale').oninput = (e) => { assetScale = parseFloat(e.target.value); updateGroupScale(); safeSetText('val-asset-scale', e.target.value); };
+            if (publicAssets.length === 0) {
+                 errorEl.innerText = "Cargando activos de red... intenta de nuevo.";
+                 errorEl.classList.remove('hidden');
+                 return;
+            }
 
-            if(el('rotate-toggle')) el('rotate-toggle').onclick = (e) => { isRotating = !isRotating; e.target.classList.toggle('active', isRotating); };
-            if(el('ctrl-speed')) el('ctrl-speed').oninput = (e) => { rotationSpeed = parseFloat(e.target.value); safeSetText('val-speed', e.target.value); };
-            document.querySelectorAll('.axis-btn').forEach(b => b.onclick = (e) => { const axis = e.target.dataset.axis; rotationAxis[axis] = !rotationAxis[axis]; e.target.classList.toggle('active', rotationAxis[axis]); });
-            if(el('erratic-btn')) el('erratic-btn').onclick = () => { isRotating = true; el('rotate-toggle').classList.add('active'); rotationAxis = {x: true, y: true, z: true}; document.querySelectorAll('.axis-btn').forEach(b => b.classList.add('active')); rotationSpeed = 0.2; el('ctrl-speed').value = 0.2; safeSetText('val-speed', "0.20"); };
+            btn.innerText = "Validando...";
+            btn.disabled = true;
+            errorEl.classList.add('hidden');
 
-            if(el('color-1')) el('color-1').oninput = (e) => { uniforms.uColor1.value.set(e.target.value); if(particlesMesh) particlesMesh.material.color.set(e.target.value); };
-            if(el('color-2')) el('color-2').oninput = (e) => uniforms.uColor2.value.set(e.target.value);
-            if(el('color-3')) el('color-3').oninput = (e) => uniforms.uColor3.set(e.target.value);
+            setTimeout(async () => {
+                const assetToUnlock = publicAssets.find(a => a.id.toUpperCase() === scanId);
+                
+                if (!assetToUnlock) {
+                    errorEl.innerText = "Código Inválido. Verifica el ID.";
+                    errorEl.classList.remove('hidden');
+                    btn.innerText = "Desbloquear";
+                    btn.disabled = false;
+                    return;
+                }
 
-            document.querySelectorAll('.geo-btn').forEach(b => b.onclick = (e) => changeMorphology(e.target.dataset.geo));
+                // Si el usuario es nulo por bloqueos de iframes, permitir ver en AR sin guardar local
+                if (!currentUser) {
+                    document.getElementById('input-unlock-code').value = ''; // clean
+                    openARViewer(assetToUnlock);
+                    btn.innerText = "Desbloquear";
+                    btn.disabled = false;
+                    return;
+                }
 
-            const glbIn = el('glb-upload'), bgIn = el('bg-upload'), texIn = el('tex-upload');
-            if(el('upload-trigger')) el('upload-trigger').onclick = () => glbIn.click();
-            if(el('bg-upload-trigger')) el('bg-upload-trigger').onclick = () => bgIn.click();
-            if(el('tex-upload-trigger')) el('tex-upload-trigger').onclick = () => texIn.click();
+                if (unlockedAssetIds.includes(assetToUnlock.id)) {
+                    document.getElementById('input-unlock-code').value = ''; // clean
+                    openARViewer(assetToUnlock);
+                    btn.innerText = "Desbloquear";
+                    btn.disabled = false;
+                    return;
+                }
 
-            glbIn.onchange = (ev) => {
-                const file = ev.target.files[0]; if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    globalGLTFLoader.parse(e.target.result, '', (gltf) => {
-                        currentMorphology = 'custom_glb';
-                        while(activeGroup.children.length > 0) activeGroup.remove(activeGroup.children[0]);
-                        const model = gltf.scene;
-                        model.traverse((child) => { if (child.isMesh) { child.material = reactiveMaterial; child.geometry.computeVertexNormals(); } });
-                        const box = new THREE.Box3().setFromObject(model);
-                        model.position.sub(box.getCenter(new THREE.Vector3()));
-                        const s = 45 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
-                        model.scale.set(s, s, s);
-                        activeGroup.add(model);
-                        safeSetText('status-text', 'Asset_Injected');
-                    }, (err) => { console.error("Parse Error:", err); });
-                };
-                reader.readAsArrayBuffer(file);
-            };
-
-            bgIn.onchange = (ev) => {
-                const file = ev.target.files[0]; if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (e) => { new THREE.TextureLoader().load(e.target.result, (tex) => { scene.background = tex; }); };
-                reader.readAsDataURL(file);
-            };
-
-            texIn.onchange = (ev) => {
-                const file = ev.target.files[0]; if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    new THREE.TextureLoader().load(e.target.result, (tex) => {
-                        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                        uniforms.uTexMask.value = tex;
-                        uniforms.uHasTex.value = true;
-                        safeSetText('status-text', 'TRIPLANAR_ENVELOPED');
+                try {
+                    await setDoc(doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'unlocked', assetToUnlock.id), {
+                        assetId: assetToUnlock.id,
+                        unlockedAt: serverTimestamp()
                     });
-                };
-                reader.readAsDataURL(file);
-            };
-        }
+                    document.getElementById('input-unlock-code').value = ''; // clean
+                    openARViewer(assetToUnlock);
+                } catch (err) {
+                    console.error(err);
+                    errorEl.innerText = "Error de red. Intenta de nuevo.";
+                    errorEl.classList.remove('hidden');
+                }
+                
+                btn.innerText = "Desbloquear";
+                btn.disabled = false;
 
-        function animate() {
-            requestAnimationFrame(animate);
-            const time = clock.getElapsedTime();
-            safeSetText('clock-display', new Date().toTimeString().split(' ')[0]);
-            
-            if(clickExplodeTarget > 0) {
-                clickExplodeTarget -= 0.15;
-                if(clickExplodeTarget < 0) clickExplodeTarget = 0;
-            }
-            uniforms.uClickExplode.value = clickExplodeTarget;
-            
-            if (isAudioInitialized && analyser) {
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0; for(let i=0; i<15; i++) sum += dataArray[i];
-                const audio = sum / 15 / 255.0;
-                uniforms.uAudioData.value = audio;
-                if(gridHelper) gridHelper.position.y = -50 + (audio * 25);
-                if(particlesMesh) { particlesMesh.rotation.y += audio * 0.05; particlesMesh.position.z = Math.sin(time) * 30 * audio; }
-            } else { uniforms.uAudioData.value = Math.sin(time * 1.5) * 0.12 + 0.1; }
-            
-            uniforms.uTime.value = time;
-            uniforms.uMouse.value.lerp(targetMouse, 0.05);
-            mouse.lerp(targetMouse, 0.05);
-            
-            // MAGNETIC TILT Premium
-            tiltGroup.rotation.z = mouse.x * -0.4;
-            tiltGroup.rotation.x = mouse.y * 0.4;
+            }, 800); // Simulando procesamiento
+        });
 
-            camera.position.x += (mouse.x * 60 - camera.position.x) * 0.05;
-            camera.position.y += (-mouse.y * 40 + 5 - camera.position.y) * 0.05;
-            camera.lookAt(0,0,0);
-            
-            if(isRotating) {
-                if(rotationAxis.x) activeGroup.rotation.x += rotationSpeed;
-                if(rotationAxis.y) activeGroup.rotation.y += rotationSpeed;
-                if(rotationAxis.z) activeGroup.rotation.z += rotationSpeed;
-            }
-
-            if (currentMorphology === 'mobius') {
-                lemniscataAnimParam += 0.03 + (uniforms.uAudioData.value * 0.1);
-                updateLemniscataGeometry(lemniscataAnimParam);
-            }
-            
-            if(currentMorphology === 'knot') {
-                activeGroup.children[0].rotation.x += 0.02;
-                activeGroup.children[0].rotation.z += 0.01;
-            }
-
-            if(Math.round(time*10)%5===0) safeSetText('fps-counter', Math.round(1/clock.getDelta()));
-            renderer.render(scene, camera);
-        }
     </script>
 </body>
 </html>
