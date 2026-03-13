@@ -232,8 +232,8 @@
     <script type="module">
         // 1. IMPORTACIONES DE FIREBASE VÍA CDN
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        // Añadimos browserLocalPersistence para mantener la sesión anónima al refrescar la página
-        import { getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence, inMemoryPersistence } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        // Importamos todas las opciones de persistencia para escalar graciosamente en móviles
+        import { getAuth, signInAnonymously, onAuthStateChanged, setPersistence, indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         // 2. CONFIGURACIÓN
@@ -247,7 +247,7 @@
             measurementId: "G-QV8KZR2V97"
         };
         
-        // Tu dominio final solicitado
+        // Dominio final para los QR
         const APP_BASE_URL = "https://spatialgineers.github.io/SGX/"; 
         const APP_ID = "sgx-ar-hunt";
         
@@ -293,7 +293,6 @@
         });
 
         // 6. CARGAR ACTIVOS PÚBLICOS INDEPENDIENTEMENTE DE AUTH
-        // Esto previene que si Auth falla en un iframe, no se bloquee la lista
         const assetsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'ar_assets');
         onSnapshot(assetsRef, (snapshot) => {
             publicAssets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -302,26 +301,31 @@
         }, (error) => console.error("Error fetching public assets:", error));
 
 
-        // 7. AUTENTICACIÓN Y PERSISTENCIA
+        // 7. AUTENTICACIÓN Y PERSISTENCIA (MÓVIL FRIENDLY)
         const initAuth = async () => {
             try {
-                // Intentamos persistencia local primero para asegurar que el ID Anónimo se guarde
-                // Esto garantiza que la próxima vez que entren al link, tengan sus assets guardados
-                await setPersistence(auth, browserLocalPersistence);
+                // 1. Prioridad: IndexedDB (Estándar moderno, el más robusto en móviles iOS/Android para mantener la sesión)
+                await setPersistence(auth, indexedDBLocalPersistence);
                 await signInAnonymously(auth);
             } catch (err) {
-                console.warn("Persistencia local falló (probablemente estás en modo incógnito o en un iframe bloqueado). Usando fallback de memoria:", err);
+                console.warn("IndexedDB falló. Intentando LocalStorage...", err);
                 try {
-                    // Fallback a memoria si el navegador bloquea cookies de terceros (ej. iframes)
-                    await setPersistence(auth, inMemoryPersistence);
+                    // 2. Fallback: LocalStorage 
+                    await setPersistence(auth, browserLocalPersistence);
                     await signInAnonymously(auth);
-                } catch (fallbackErr) {
-                    console.error("Auth error completo:", fallbackErr);
-                    // Si falla por completo, mostramos la interfaz vacía al menos
-                    elLoading.classList.add('hidden');
-                    elHeader.classList.remove('hidden');
-                    elMainContent.classList.remove('hidden');
-                    showHome();
+                } catch (err2) {
+                    console.warn("LocalStorage falló. Usando memoria temporal (se perderá al cerrar la pestaña)...", err2);
+                    try {
+                        // 3. Fallback de emergencia: Memoria (Evita que la app crashee en Iframes bloqueados)
+                        await setPersistence(auth, inMemoryPersistence);
+                        await signInAnonymously(auth);
+                    } catch (fallbackErr) {
+                        console.error("Fallo total de Auth:", fallbackErr);
+                        elLoading.classList.add('hidden');
+                        elHeader.classList.remove('hidden');
+                        elMainContent.classList.remove('hidden');
+                        showHome();
+                    }
                 }
             }
         };
@@ -366,7 +370,6 @@
                     </div>`;
             } else {
                 listEl.innerHTML = publicAssets.map(asset => {
-                    // Genera la URL con el dominio nuevo solicitado
                     const finalAppUrl = `${APP_BASE_URL}?code=${asset.id}`;
                     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(finalAppUrl)}&color=000000&bgcolor=ffffff`;
                     
