@@ -232,8 +232,8 @@
     <script type="module">
         // 1. IMPORTACIONES DE FIREBASE VÍA CDN
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        // Añadimos setPersistence e inMemoryPersistence para evitar bloqueos en iframes de validación
-        import { getAuth, signInAnonymously, onAuthStateChanged, setPersistence, inMemoryPersistence } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        // Añadimos browserLocalPersistence para mantener la sesión anónima al refrescar la página
+        import { getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence, inMemoryPersistence } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         // 2. CONFIGURACIÓN
@@ -302,19 +302,27 @@
         }, (error) => console.error("Error fetching public assets:", error));
 
 
-        // 7. AUTENTICACIÓN
+        // 7. AUTENTICACIÓN Y PERSISTENCIA
         const initAuth = async () => {
             try {
-                // Fueraza la memoria temporal para evitar bloqueos de iframes embebidos
-                await setPersistence(auth, inMemoryPersistence);
+                // Intentamos persistencia local primero para asegurar que el ID Anónimo se guarde
+                // Esto garantiza que la próxima vez que entren al link, tengan sus assets guardados
+                await setPersistence(auth, browserLocalPersistence);
                 await signInAnonymously(auth);
             } catch (err) {
-                console.error("Auth error (Puede que tu navegador bloquee cookies de terceros):", err);
-                // Si falla, aún mostramos la interfaz pero en un estado limitado
-                elLoading.classList.add('hidden');
-                elHeader.classList.remove('hidden');
-                elMainContent.classList.remove('hidden');
-                showHome();
+                console.warn("Persistencia local falló (probablemente estás en modo incógnito o en un iframe bloqueado). Usando fallback de memoria:", err);
+                try {
+                    // Fallback a memoria si el navegador bloquea cookies de terceros (ej. iframes)
+                    await setPersistence(auth, inMemoryPersistence);
+                    await signInAnonymously(auth);
+                } catch (fallbackErr) {
+                    console.error("Auth error completo:", fallbackErr);
+                    // Si falla por completo, mostramos la interfaz vacía al menos
+                    elLoading.classList.add('hidden');
+                    elHeader.classList.remove('hidden');
+                    elMainContent.classList.remove('hidden');
+                    showHome();
+                }
             }
         };
         initAuth();
