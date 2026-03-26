@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TUTTO PASSA SGX Visualizer</title>
+    <title>TUTTO PASSA SGX VISUALIZER</title>
     <!-- Frameworks UI y Tipografía -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -25,8 +25,9 @@
         .bg-sgx-yellow { background-color: #FDCC0D; }
         .glass-panel { background: rgba(5, 15, 35, 0.95); backdrop-filter: blur(40px); border: 1px solid rgba(253, 204, 13, 0.2); box-shadow: 0 0 50px rgba(0, 0, 0, 0.9); }
         
+        /* Modificado para que soporte display block perfectamente y evite el desface de wrap */
         .glitch-text { position: relative; }
-        .glitch-text::before, .glitch-text::after { content: attr(data-text); position: absolute; top: 0; left: 0; opacity: 0.8; }
+        .glitch-text::before, .glitch-text::after { content: attr(data-text); position: absolute; top: 0; left: 0; opacity: 0.8; width: 100%; }
         .glitch-text::before { left: 2px; text-shadow: -1px 0 #ff00c1; animation: glitch-anim-1 2s infinite linear alternate-reverse; }
         .glitch-text::after { left: -2px; text-shadow: -1px 0 #00fff9; animation: glitch-anim-2 3s infinite linear alternate-reverse; }
         @keyframes glitch-anim-1 { 0% { clip: rect(20px, 9999px, 85px, 0); } 100% { clip: rect(10px, 9999px, 90px, 0); } }
@@ -37,7 +38,8 @@
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(50, 82, 123, 0.5); border-radius: 2px; }
         
         .ui-transition { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease; }
-        .ui-hidden { opacity: 0; transform: scale(0.95) translateY(15px); pointer-events: none; }
+        .is-hidden { opacity: 0 !important; transform: scale(0.95) translateY(15px) !important; pointer-events: none !important; }
+        
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #FDCC0D; border-radius: 10px; }
         
@@ -50,21 +52,27 @@
 </head>
 <body>
 
-    <div id="ui-container" class="ui-transition ui-layer flex flex-col justify-between p-4 sm:p-8 pointer-events-none">
+    <div id="ui-container" class="ui-layer flex flex-col justify-between p-4 sm:p-8 pointer-events-none">
         <!-- Header -->
         <div class="flex justify-between items-start">
-            <div class="glass-panel p-5 rounded-br-3xl border-l-4 border-l-sgx-yellow shadow-2xl">
-                <h1 class="text-3xl sm:text-5xl font-bold tracking-[0.2em] text-sgx-yellow glitch-text" data-text="TUTTO PASSA">TUTTO PASSA</h1>
-                <p class="font-tech text-[10px] text-gray-400 mt-1 uppercase tracking-[0.4em]">powered by Spatialgineers</p>
+            <!-- TÍTULO SIEMPRE VISIBLE - Separado en dos bloques para evitar el glitch de salto de línea -->
+            <div id="header-left" class="glass-panel p-4 sm:p-5 rounded-br-3xl border-l-4 border-l-sgx-yellow shadow-2xl max-w-[90vw] sm:max-w-[70vw] md:max-w-none">
+                <h1 class="text-xl sm:text-3xl md:text-4xl font-bold tracking-[0.1em] sm:tracking-[0.15em] text-sgx-yellow leading-tight">
+                    <span class="block glitch-text" data-text="TUTTO PASSA SGX">TUTTO PASSA SGX</span>
+                    <span class="block glitch-text" data-text="VISUALIZER">VISUALIZER</span>
+                </h1>
+                <p class="font-tech text-[9px] sm:text-[10px] text-gray-400 mt-2 uppercase tracking-[0.3em] sm:tracking-[0.4em]">powered by Spatialgineers</p>
             </div>
-            <div class="text-right glass-panel px-5 py-3 rounded-bl-3xl border-r-4 border-r-sgx-yellow hidden sm:block shadow-2xl">
+            
+            <!-- RELOJ OCULTABLE -->
+            <div id="header-right" class="ui-transition text-right glass-panel px-5 py-3 rounded-bl-3xl border-r-4 border-r-sgx-yellow hidden sm:block shadow-2xl">
                 <p class="font-tech text-[10px] text-sgx-yellow uppercase tracking-widest italic">Caribbean_Engineering_Node</p>
                 <p class="font-tech text-[10px] text-white tracking-widest">CLK: <span id="clock-display">00:00:00</span></p>
             </div>
         </div>
 
-        <!-- Panel de Control Principal (HUD) -->
-        <div class="absolute right-4 sm:right-8 top-24 sm:top-36 w-[calc(100vw-2rem)] sm:w-80 max-h-[75vh] overflow-y-auto glass-panel p-6 rounded-2xl flex flex-col space-y-6 interactive-element shadow-2xl custom-scrollbar pointer-events-auto" id="control-panel">
+        <!-- Panel de Control Principal (HUD) - OCULTABLE -->
+        <div class="ui-transition absolute right-4 sm:right-8 top-28 sm:top-36 w-[calc(100vw-2rem)] sm:w-80 max-h-[70vh] overflow-y-auto glass-panel p-6 rounded-2xl flex flex-col space-y-6 interactive-element shadow-2xl custom-scrollbar pointer-events-auto" id="control-panel">
             <div class="flex items-center justify-between border-b border-sgx-yellow/10 pb-4">
                 <h2 class="text-sgx-yellow font-bold tracking-widest text-xs uppercase italic font-tech underline underline-offset-8 decoration-sgx-yellow/20">System Overrides</h2>
                 <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]"></div>
@@ -160,14 +168,15 @@
                     <input type="range" id="ctrl-part-count" min="500" max="25000" step="500" value="10000" class="w-full">
                 </div>
                 <div class="space-y-1">
-                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Particle Size</span><span id="val-part-size" class="text-white">0.15</span></label>
-                    <input type="range" id="ctrl-part-size" min="0.01" max="1.0" step="0.01" value="0.15" class="w-full">
+                    <!-- Tamaño base incrementado drásticamente a 1.5 -->
+                    <label class="text-[10px] text-gray-400 font-tech flex justify-between uppercase"><span>Particle Size</span><span id="val-part-size" class="text-white">1.5</span></label>
+                    <input type="range" id="ctrl-part-size" min="0.1" max="5.0" step="0.1" value="1.5" class="w-full">
                 </div>
             </div>
         </div>
 
-        <!-- Footer Stats -->
-        <div class="flex justify-between items-end font-tech text-[10px] text-gray-500 pb-16 sm:pb-0">
+        <!-- Footer Stats - OCULTABLE -->
+        <div id="footer-stats" class="ui-transition flex justify-between items-end font-tech text-[10px] text-gray-500 pb-16 sm:pb-0">
             <div class="glass-panel px-4 py-2 rounded-tr-2xl border-b-2 border-b-sgx-yellow shadow-xl">
                 <p>OUTPUT: <span id="fps-counter" class="text-white">60</span> FPS // <span id="status-text" class="text-sgx-copper uppercase font-bold italic animate-pulse tracking-widest">Standby</span></p>
                 <p class="opacity-50 text-[8px]">SGX_ENGINE_V5 // CENTERED_ORBIT // MATCAP</p>
@@ -188,10 +197,7 @@
     <div id="canvas-container"></div>
 
     <script>
-        // SHADERS OPTIMIZADOS v5: Escala en World Space.
-        // Al asegurarse de que el pivot del objeto es (0,0,0) en la lógica de JS, 
-        // multiplicar las coordenadas mundiales causa una escala / inflado en 3D perfecto
-        // sin rasgar los triángulos (tearing) que causaba el método de normales de las caras.
+        // SHADERS OPTIMIZADOS v5
         const vertexShaderGLSL = `
             uniform float uTime;
             uniform float uAudioData;
@@ -234,7 +240,6 @@
                 vUv = uv;
                 vViewNormal = normalize(normalMatrix * normal);
                 
-                // Generamos distorsión orgánica (ruido) basándonos en los vértices base inalterados
                 float noiseFreq = 0.6 + (uMouse.x * 0.2);
                 vec3 noisePos = vec3(position.x * noiseFreq + uTime * 0.2, position.y * noiseFreq + uTime * 0.2, position.z * noiseFreq);
                 
@@ -242,13 +247,9 @@
                 float explodeEffect = max(0.0, snoise(position * 2.5 + uTime) * uClickExplode);
                 float audioFactor = max(0.0, uAudioData * uAudioSens * 0.15);
                 
-                // Calculamos un multiplicador de escala maestra uniforme
                 float totalScale = 1.0 + audioFactor + (smoothNoiseVal * 0.2) + (explodeEffect * 0.2);
                 
-                // Mapeamos a las coordenadas absolutas en el mundo...
                 vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-                
-                // ...y escalamos el objeto desde el centro universal (0,0,0) que ahora es su pivote perfecto.
                 worldPosition.xyz *= totalScale;
                 
                 vPosition = worldPosition.xyz;
@@ -298,16 +299,13 @@
             }
 
             void main() {
-                // Color Base Dinámico
                 float colorNoise = snoise(vPosition * 0.05 + uTime * 0.2) * 0.5 + 0.5;
                 vec3 color = mix(uColor1, uColor2, colorNoise);
                 color = mix(color, uColor3, sin(vPosition.y * 0.1 + uTime) * 0.5 + 0.5);
 
-                // ILUMINACIÓN 3D
                 vec3 viewLightDir = normalize(vec3(0.8, 1.0, 0.5)); 
                 float diffuse = max(dot(vViewNormal, viewLightDir), 0.4); 
                 
-                // MATCAP MAPPING (Proyección Esférica suave)
                 if(uHasTex) {
                     vec2 matcapUV = vViewNormal.xy * 0.5 + 0.5;
                     matcapUV = (matcapUV - 0.5) * (uTexScale * 5.0) + 0.5;
@@ -315,10 +313,8 @@
                     color = mix(color, texColor.rgb, 0.9);
                 }
 
-                // Luz difusa y exposición global alta para profundidad de sombras
                 vec3 finalColor = color * diffuse * 1.8; 
                 
-                // RIM LIGHT / FRESNEL GLOW reactivo a la música
                 vec3 viewDir = vec3(0.0, 0.0, 1.0);
                 float rimLight = pow(1.0 - clamp(dot(viewDir, vViewNormal), 0.0, 1.0), 2.5);
                 finalColor += uColor1 * rimLight * (0.5 + uAudioData * 2.0);
@@ -436,7 +432,8 @@
 
             loadCustomEnvironmentAndModel();
             
-            createParticles(10000, 0.15);
+            // Partículas más grandes desde el inicio (tamaño 1.5 en lugar de 0.15)
+            createParticles(10000, 1.5);
 
             gridHelper = new THREE.GridHelper(1000, 100, 0x32527B, 0x050505);
             gridHelper.position.y = -50;
@@ -471,16 +468,12 @@
                     }
                 });
                 
-                // LÓGICA DE CENTRADO ABSOLUTO E INFALIBLE
-                // 1. Obtenemos la caja delimitadora (bounding box) en su estado natural
                 const box = new THREE.Box3().setFromObject(model);
                 const center = box.getCenter(new THREE.Vector3());
                 const size = box.getSize(new THREE.Vector3());
                 
-                // 2. Desplazamos la malla en su dirección opuesta para que su centro visual caiga en 0,0,0
                 model.position.sub(center);
                 
-                // 3. Lo envolvemos en un Grupo Wrapper para poder escalar de manera segura el modelo completo desde 0,0,0
                 const wrapper = new THREE.Group();
                 wrapper.add(model);
                 
@@ -488,7 +481,6 @@
                 const s = 45 / maxDim;
                 wrapper.scale.set(s, s, s);
                 
-                // 4. Se añade a activeGroup, que rota de forma independiente en su propio eje 0,0,0
                 activeGroup.add(wrapper);
                 
                 safeSetText('status-text', 'Tutto_Passa_Loaded');
@@ -585,9 +577,26 @@
             document.addEventListener('mousemove', (e) => { targetMouse.set((e.clientX - windowHalfX) / windowHalfX, (e.clientY - windowHalfY) / windowHalfY); });
             document.addEventListener('touchmove', (e) => { if(e.touches.length > 0) targetMouse.set((e.touches[0].clientX - windowHalfX) / windowHalfX, (e.touches[0].clientY - windowHalfY) / windowHalfY); });
 
-            const ui = el('ui-container'), btn = el('toggle-ui-btn');
-            if(btn && ui) btn.onclick = () => { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; };
-            document.addEventListener('keydown', (e) => { if((e.key.toLowerCase() === 'h' || e.key === 'Escape') && ui && btn) { ui.classList.toggle('ui-hidden'); btn.innerText = ui.classList.contains('ui-hidden') ? "HUD: SHOW [H]" : "HUD: HIDE [H]"; } });
+            // LÓGICA DE OCULTAMIENTO (Deja el título visible)
+            const toggleElements = [el('control-panel'), el('footer-stats'), el('header-right')];
+            const btn = el('toggle-ui-btn');
+            let uiHidden = false;
+            
+            const toggleHUD = () => {
+                uiHidden = !uiHidden;
+                toggleElements.forEach(el => {
+                    if(el) el.classList.toggle('is-hidden', uiHidden);
+                });
+                if(btn) btn.innerText = uiHidden ? "HUD: SHOW [H]" : "HUD: HIDE [H]";
+            };
+
+            if(btn) btn.onclick = toggleHUD;
+            
+            document.addEventListener('keydown', (e) => { 
+                if((e.key.toLowerCase() === 'h' || e.key === 'Escape') && btn) { 
+                    toggleHUD();
+                } 
+            });
             
             document.addEventListener('click', (e) => { 
                 if (audioContext && audioContext.state === 'suspended') audioContext.resume(); 
@@ -619,7 +628,6 @@
             if(el('bg-upload-trigger')) el('bg-upload-trigger').onclick = () => bgIn.click();
             if(el('tex-upload-trigger')) el('tex-upload-trigger').onclick = () => texIn.click();
 
-            // Misma lógica de centrado absoluto para uploads personalizados
             glbIn.onchange = (ev) => {
                 const file = ev.target.files[0]; if (!file) return;
                 const reader = new FileReader();
@@ -728,5 +736,3 @@
     </script>
 </body>
 </html>
-
-
