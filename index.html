@@ -14,7 +14,18 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/loaders/DRACOLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/examples/js/loaders/KTX2Loader.js"></script>
 
-      /* Modificado para que soporte display block perfectamente y evite el desface de wrap */
+ <style>
+        body { margin: 0; overflow: hidden; background-color: #010101; font-family: 'Rajdhani', sans-serif; color: #ffffff; user-select: none; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        .scanlines { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02)); background-size: 100% 4px, 3px 100%; z-index: 5; pointer-events: none; opacity: 0.3; }
+        .ui-layer { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; }
+        .interactive-element { pointer-events: auto; }
+        .font-tech { font-family: 'Share Tech Mono', monospace; }
+        .text-sgx-yellow { color: #FDCC0D; }
+        .bg-sgx-yellow { background-color: #FDCC0D; }
+        .glass-panel { background: rgba(5, 15, 35, 0.95); backdrop-filter: blur(40px); border: 1px solid rgba(253, 204, 13, 0.2); box-shadow: 0 0 50px rgba(0, 0, 0, 0.9); }
+        
+        /* Modificado para que soporte display block perfectamente y evite el desface de wrap */
         .glitch-text { position: relative; }
         .glitch-text::before, .glitch-text::after { content: attr(data-text); position: absolute; top: 0; left: 0; opacity: 0.8; width: 100%; }
         .glitch-text::before { left: 2px; text-shadow: -1px 0 #ff00c1; animation: glitch-anim-1 2s infinite linear alternate-reverse; }
@@ -47,7 +58,7 @@
             <!-- TÍTULO SIEMPRE VISIBLE - Separado en dos bloques para evitar el glitch de salto de línea -->
             <div id="header-left" class="glass-panel p-4 sm:p-5 rounded-br-3xl border-l-4 border-l-sgx-yellow shadow-2xl max-w-[90vw] sm:max-w-[70vw] md:max-w-none">
                 <h1 class="text-xl sm:text-3xl md:text-4xl font-bold tracking-[0.1em] sm:tracking-[0.15em] text-sgx-yellow leading-tight">
-                    <span class="block glitch-text" data-text="TUTTO PASSA SGX">SGX STAGE</span>
+                    <span class="block glitch-text" data-text="TUTTO PASSA SGX">TUTTO PASSA SGX</span>
                     <span class="block glitch-text" data-text="VISUALIZER">VISUALIZER</span>
                 </h1>
                 <p class="font-tech text-[9px] sm:text-[10px] text-gray-400 mt-2 uppercase tracking-[0.3em] sm:tracking-[0.4em]">powered by Spatialgineers</p>
